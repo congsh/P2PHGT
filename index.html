@@ -70,7 +70,7 @@
             </div>
             <div class="form-group">
                 <label for="inviteCode">邀请码：</label>
-                <textarea id="inviteCode" rows="5" placeholder="请粘贴主持人分享给你的邀请码..."></textarea>
+                <input type="text" id="inviteCode" placeholder="请输入主持人分享的邀请码">
             </div>
             <div class="button-group">
                 <button id="joinGameBtn" class="btn btn-primary">加入游戏</button>
@@ -84,10 +84,18 @@
             <div class="connection-info">
                 <h3>你的邀请码（分享给参与者）</h3>
                 <div class="code-container">
-                    <textarea id="hostInviteCode" readonly placeholder="生成的邀请码将显示在这里" aria-label="邀请码"></textarea>
+                    <input type="text" id="hostInviteCode" readonly placeholder="生成的邀请码将显示在这里" aria-label="邀请码">
                     <button id="copyInviteCodeBtn" class="btn btn-small">复制</button>
                 </div>
-                <p>将此邀请码分享给参与者，他们输入后系统会自动处理连接</p>
+                <p>将此邀请码分享给参与者，他们输入后即可加入房间</p>
+            </div>
+            <div id="shareUrlContainer" style="display: none;" class="share-url-container">
+                <h3>分享链接</h3>
+                <div class="code-container">
+                    <input type="text" id="shareUrl" readonly placeholder="分享链接将显示在这里" aria-label="分享链接">
+                    <button id="copyShareUrlBtn" class="btn btn-small">复制</button>
+                </div>
+                <p>直接分享此链接，其他人点击后可自动加入房间</p>
             </div>
             <div class="auto-connect">
                 <button id="autoDetectBtn" class="btn btn-primary">自动检测并连接参与者</button>

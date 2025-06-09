@@ -47,7 +47,8 @@ const viewManager = {
         // 为可复制文本区域添加复制功能
         const clipboardBtns = [
             { btnId: 'copyInviteCodeBtn', textareaId: 'hostInviteCode' },
-            { btnId: 'copyResponseCodeBtn', textareaId: 'responseCode' }
+            { btnId: 'copyResponseCodeBtn', textareaId: 'responseCode' },
+            { btnId: 'copyShareUrlBtn', textareaId: 'shareUrl' }
         ];
         
         clipboardBtns.forEach(item => {
@@ -99,6 +100,16 @@ function initSolutionToggle() {
 
 // 初始化应用
 function initApp() {
+    // 检查URL中是否有房间邀请码
+    const roomCodeFromUrl = PeerManager.checkUrlForInviteCode();
+    if (roomCodeFromUrl) {
+        // 如果URL中包含房间码，延迟一点执行，确保DOM已完全加载
+        setTimeout(() => {
+            document.getElementById('inviteCode').value = roomCodeFromUrl;
+            viewManager.switchTo('participantJoinView');
+        }, 100);
+    }
+    
     // 绑定欢迎页面按钮事件
     document.getElementById('createRoomBtn').addEventListener('click', () => {
         viewManager.switchTo('hostCreationView');

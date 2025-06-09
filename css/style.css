@@ -159,6 +159,14 @@ textarea {
     margin-bottom: 30px;
 }
 
+.share-url-container {
+    margin-bottom: 30px;
+    padding: 15px;
+    background-color: #f1f8ff;
+    border-radius: 5px;
+    border: 1px dashed #3498db;
+}
+
 .auto-connect {
     margin-bottom: 30px;
     padding: 15px;
@@ -179,6 +187,14 @@ textarea {
 .code-container {
     position: relative;
     margin-bottom: 20px;
+}
+
+.code-container input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    font-family: monospace;
+    background-color: #f8f9fa;
+    font-size: 18px;
 }
 
 .code-container textarea {

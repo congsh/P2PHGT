@@ -21,21 +21,69 @@ class PeerManager {
             { urls: 'stun:stun1.l.google.com:19302' }
         ];
         this.myId = this._generateId(); // 生成唯一ID
+        this.currentInviteCode = null; // 当前邀请码
+        
+        // 清理过期的房间信息
+        this._cleanupExpiredRooms();
+    }
+
+    /**
+     * 清理过期的房间信息
+     * @private
+     */
+    _cleanupExpiredRooms() {
+        // 清理 localStorage 中超过48小时的房间信息
+        const EXPIRY_TIME = 48 * 60 * 60 * 1000; // 48小时
+        const now = new Date().getTime();
+        
+        // 遍历localStorage
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            // 只处理房间信息
+            if (key && key.startsWith('room_')) {
+                try {
+                    const data = JSON.parse(decodeURIComponent(localStorage.getItem(key)));
+                    // 检查时间戳
+                    if (data.timestamp && (now - data.timestamp > EXPIRY_TIME)) {
+                        localStorage.removeItem(key);
+                        console.log(`已清理过期房间信息: ${key}`);
+                    }
+                } catch (e) {
+                    console.error(`清理房间信息出错: ${key}`, e);
+                }
+            }
+        }
     }
 
     /**
      * 生成邀请码（主持人用）
      * @param {Object} roomSettings - 房间设置
-     * @returns {string} 邀请码
+     * @returns {string} 短邀请码
      */
     generateInviteCode(roomSettings) {
-        // 将主持人信息和房间设置编码为邀请码
+        // 生成短邀请码
+        const shortCode = this._generateShortCode();
+        
+        // 将主持人信息和房间设置存储起来
         const inviteData = {
             hostId: this.myId,
-            roomSettings: roomSettings
+            roomSettings: roomSettings,
+            timestamp: new Date().getTime()
         };
-        // 使用 encodeURIComponent 处理 Unicode 字符
-        return btoa(encodeURIComponent(JSON.stringify(inviteData)));
+        
+        // 将完整数据存储到localStorage
+        const shortCodeKey = `room_${shortCode}`;
+        localStorage.setItem(shortCodeKey, encodeURIComponent(JSON.stringify(inviteData)));
+        
+        // 设置过期时间（48小时后自动清理）
+        setTimeout(() => {
+            localStorage.removeItem(shortCodeKey);
+        }, 48 * 60 * 60 * 1000);
+        
+        // 将短邀请码与完整信息关联
+        this.currentInviteCode = shortCode;
+        
+        return shortCode;
     }
 
     /**
@@ -45,12 +93,56 @@ class PeerManager {
      */
     parseInviteCode(inviteCode) {
         try {
-            // 解码时先用atob解码，再用decodeURIComponent解码Unicode
-            return JSON.parse(decodeURIComponent(atob(inviteCode)));
+            const shortCodeKey = `room_${inviteCode.trim().toUpperCase()}`;
+            const storedData = localStorage.getItem(shortCodeKey);
+            
+            if (!storedData) {
+                // 尝试在 SessionStorage 中查找
+                if(sessionStorage.getItem(shortCodeKey)) {
+                    return JSON.parse(decodeURIComponent(sessionStorage.getItem(shortCodeKey)));
+                }
+                
+                // 如果找不到数据，可能是新生成的邀请码
+                // 将邀请码保存到Session中，等待主持人共享数据
+                sessionStorage.setItem('pending_invite_code', inviteCode.trim().toUpperCase());
+                
+                // 需要定期检查是否有新数据
+                this._startPendingInviteCheck();
+                
+                throw new Error('未找到与该邀请码关联的房间信息，请确保输入正确，或等待主持人分享房间信息');
+            }
+            
+            return JSON.parse(decodeURIComponent(storedData));
         } catch (e) {
             console.error('邀请码解析失败:', e);
-            return null;
+            throw e;
         }
+    }
+
+    /**
+     * 开始等待邀请码数据的检查
+     * @private
+     */
+    _startPendingInviteCheck() {
+        const pendingCode = sessionStorage.getItem('pending_invite_code');
+        if (!pendingCode) return;
+        
+        const shortCodeKey = `room_${pendingCode}`;
+        const checkInterval = setInterval(() => {
+            const storedData = localStorage.getItem(shortCodeKey);
+            if (storedData) {
+                clearInterval(checkInterval);
+                sessionStorage.removeItem('pending_invite_code');
+                sessionStorage.setItem(shortCodeKey, storedData);
+                // 页面刷新以重新加载邀请码
+                window.location.reload();
+            }
+        }, 1000); // 每秒检查一次
+        
+        // 30秒后停止检查
+        setTimeout(() => {
+            clearInterval(checkInterval);
+        }, 30000);
     }
 
     /**
@@ -377,6 +469,102 @@ class PeerManager {
         // 生成一个简单的随机ID
         return Math.random().toString(36).substring(2, 15) +
                Math.random().toString(36).substring(2, 15);
+    }
+    
+    /**
+     * 生成短邀请码
+     * @returns {string} 5-12位的短邀请码
+     * @private
+     */
+    _generateShortCode() {
+        // 创建一个包含字母和数字的字符集（排除容易混淆的字符如0,O,1,I,l）
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let code = '';
+        
+        // 生成6-10位随机码
+        const codeLength = Math.floor(Math.random() * 5) + 6; // 6-10位
+        for (let i = 0; i < codeLength; i++) {
+            code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        
+        return code;
+    }
+
+    /**
+     * 共享房间信息到指定URL
+     * 用于跨设备共享房间信息
+     * @param {string} code - 邀请码
+     * @returns {string} 可共享的URL
+     */
+    shareRoomInfo(code = null) {
+        const inviteCode = code || this.currentInviteCode;
+        if (!inviteCode) return null;
+        
+        const shortCodeKey = `room_${inviteCode}`;
+        const roomData = localStorage.getItem(shortCodeKey);
+        
+        if (roomData) {
+            // 创建一个包含房间数据的对象
+            const shareData = {
+                code: inviteCode,
+                data: roomData
+            };
+            
+            // 将数据存储到一个通用位置
+            const shareKey = `shared_room_${inviteCode}`;
+            localStorage.setItem(shareKey, encodeURIComponent(JSON.stringify(shareData)));
+            
+            // 设置过期时间（1小时）
+            setTimeout(() => {
+                localStorage.removeItem(shareKey);
+            }, 60 * 60 * 1000);
+            
+            // 返回带有查询参数的URL
+            const currentUrl = window.location.href.split('?')[0];
+            return `${currentUrl}?room=${inviteCode}`;
+        }
+        
+        return null;
+    }
+    
+    /**
+     * 检查URL中是否包含房间邀请码
+     * 如果有，自动加载房间信息
+     */
+    static checkUrlForInviteCode() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomCode = urlParams.get('room');
+        
+        if (roomCode) {
+            // 清除URL参数但不刷新页面
+            window.history.replaceState({}, document.title, window.location.pathname);
+            
+            // 尝试加载共享的房间数据
+            const shareKey = `shared_room_${roomCode}`;
+            const sharedData = localStorage.getItem(shareKey);
+            
+            if (sharedData) {
+                try {
+                    const parsed = JSON.parse(decodeURIComponent(sharedData));
+                    if (parsed.code && parsed.data) {
+                        const roomKey = `room_${parsed.code}`;
+                        localStorage.setItem(roomKey, parsed.data);
+                        
+                        // 表明房间数据已加载
+                        sessionStorage.setItem('loaded_room_code', roomCode);
+                        console.log(`已加载共享房间数据: ${roomCode}`);
+                        return roomCode;
+                    }
+                } catch (e) {
+                    console.error('解析共享房间数据失败:', e);
+                }
+            } else {
+                // 如果没有找到共享数据，也保存邀请码以便后续使用
+                sessionStorage.setItem('pending_invite_code', roomCode);
+            }
+        }
+        
+        return null;
     }
 }
 

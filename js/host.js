@@ -51,8 +51,25 @@ const hostManager = {
         // 显示邀请码
         document.getElementById('hostInviteCode').value = inviteCode;
         
+        // 生成并显示分享链接
+        const shareUrl = appState.peerManager.shareRoomInfo(inviteCode);
+        if (shareUrl) {
+            document.getElementById('shareUrl').value = shareUrl;
+            document.getElementById('shareUrlContainer').style.display = 'block';
+        }
+        
         // 切换到连接管理视图
         viewManager.switchTo('hostConnectionView');
+    },
+    
+    /**
+     * 复制分享链接到剪贴板
+     */
+    copyShareUrl: function() {
+        const shareUrlInput = document.getElementById('shareUrl');
+        shareUrlInput.select();
+        document.execCommand('copy');
+        alert('分享链接已复制到剪贴板');
     },
     
     /**
