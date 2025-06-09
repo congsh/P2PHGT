@@ -87,9 +87,14 @@
                     <textarea id="hostInviteCode" readonly placeholder="生成的邀请码将显示在这里" aria-label="邀请码"></textarea>
                     <button id="copyInviteCodeBtn" class="btn btn-small">复制</button>
                 </div>
+                <p>将此邀请码分享给参与者，他们输入后系统会自动处理连接</p>
             </div>
-            <div class="connection-input">
-                <h3>输入参与者的响应码</h3>
+            <div class="auto-connect">
+                <button id="autoDetectBtn" class="btn btn-primary">自动检测并连接参与者</button>
+                <p class="status-text">点击上方按钮自动连接新参与者</p>
+            </div>
+            <div class="connection-input" style="display: none;">
+                <h3>手动输入参与者的响应码</h3>
                 <div class="code-container">
                     <textarea id="participantResponseCode" placeholder="粘贴参与者发给你的响应码..."></textarea>
                     <button id="connectParticipantBtn" class="btn btn-primary">连接</button>
@@ -107,14 +112,14 @@
         <!-- 参与者等待连接界面 -->
         <div id="participantWaitingView" class="view">
             <h2>等待与主持人建立连接</h2>
-            <div class="connection-info">
-                <h3>你的响应码（发送给主持人）</h3>
+            <div class="connection-info" style="display: none;">
+                <h3>你的响应码（仅在手动连接时需要）</h3>
                 <div class="code-container">
                     <textarea id="responseCode" readonly placeholder="生成的响应码将显示在这里" aria-label="响应码"></textarea>
                     <button id="copyResponseCodeBtn" class="btn btn-small">复制</button>
                 </div>
             </div>
-            <p class="info-text">请将响应码发给主持人，等待主持人连接</p>
+            <p class="info-text">已自动处理连接请求，正在等待主持人接受连接...</p>
             <div class="loading-indicator">
                 <div class="spinner"></div>
                 <p>正在等待连接...</p>
@@ -125,8 +130,16 @@
         <div id="hostGameView" class="view">
             <div class="game-layout">
                 <div class="game-header">
-                    <h2 id="hostGameTitle"></h2>
-                    <div class="game-solution" id="hostSolutionDisplay"></div>
+                    <div class="game-title-container">
+                        <div class="game-title-wrap">
+                            <h3>汤面</h3>
+                            <div id="hostGameTitle" class="game-title"></div>
+                        </div>
+                        <div class="solution-container">
+                            <div class="solution-toggle" id="solutionToggle" title="点击显示/隐藏汤底">👁</div>
+                            <div class="game-solution" id="hostSolutionDisplay"></div>
+                        </div>
+                    </div>
                 </div>
                 <div class="game-main">
                     <div class="chat-area">
@@ -149,6 +162,9 @@
                         <div class="participants-panel">
                             <h3>参与者 (<span id="participantsCount">0</span>)</h3>
                             <ul id="gameParticipantsList"></ul>
+                            <div class="invite-controls">
+                                <button id="showInviteBtn" class="btn btn-small">邀请新参与者</button>
+                            </div>
                         </div>
                         <button id="endGameBtn" class="btn btn-danger">结束游戏</button>
                     </div>
@@ -160,8 +176,13 @@
         <div id="participantGameView" class="view">
             <div class="game-layout">
                 <div class="game-header">
-                    <h2 id="participantGameTitle"></h2>
-                    <div class="soup-type-display" id="participantSoupType"></div>
+                    <div class="game-title-container">
+                        <div class="game-title-wrap">
+                            <h3>汤面</h3>
+                            <div id="participantGameTitle" class="game-title"></div>
+                        </div>
+                        <div class="soup-type-display" id="participantSoupType"></div>
+                    </div>
                 </div>
                 <div class="game-main">
                     <div class="chat-area">
@@ -197,11 +218,31 @@
             <h2>游戏结束</h2>
             <div class="game-result">
                 <h3>汤面</h3>
-                <p id="endGameTitle"></p>
+                <div id="endGameTitle" class="result-content"></div>
                 <h3>汤底</h3>
-                <p id="endGameSolution"></p>
+                <div id="endGameSolution" class="result-content"></div>
             </div>
             <button id="returnToWelcomeBtn" class="btn btn-primary">返回主页</button>
+        </div>
+
+        <!-- 游戏中邀请新参与者弹窗 -->
+        <div id="invitePopup" class="popup">
+            <div class="popup-content">
+                <span class="close-popup">&times;</span>
+                <h3>邀请新参与者</h3>
+                <div class="connection-info">
+                    <h4>邀请码（分享给参与者）</h4>
+                    <div class="code-container">
+                        <textarea id="gameInviteCode" readonly placeholder="邀请码将显示在这里" aria-label="游戏中邀请码"></textarea>
+                        <button id="copyGameInviteCodeBtn" class="btn btn-small">复制</button>
+                    </div>
+                    <p>新参与者加入后将自动同步当前游戏状态</p>
+                </div>
+                <div class="auto-connect">
+                    <button id="gameAutoDetectBtn" class="btn btn-primary">自动检测并连接参与者</button>
+                    <p class="status-text">点击上方按钮自动连接新参与者</p>
+                </div>
+            </div>
         </div>
     </div>
 

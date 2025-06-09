@@ -70,6 +70,33 @@ const viewManager = {
     }
 };
 
+/**
+ * 初始化汤底显示/隐藏功能
+ */
+function initSolutionToggle() {
+    const toggleBtn = document.getElementById('solutionToggle');
+    const solutionDisplay = document.getElementById('hostSolutionDisplay');
+    
+    if (toggleBtn && solutionDisplay) {
+        // 默认隐藏汤底
+        solutionDisplay.style.display = 'none';
+        toggleBtn.textContent = '👁';
+        
+        // 点击切换显示/隐藏
+        toggleBtn.addEventListener('click', function() {
+            if (solutionDisplay.style.display === 'none') {
+                solutionDisplay.style.display = 'block';
+                toggleBtn.textContent = '❌';
+                toggleBtn.title = '点击隐藏汤底';
+            } else {
+                solutionDisplay.style.display = 'none';
+                toggleBtn.textContent = '👁';
+                toggleBtn.title = '点击显示汤底';
+            }
+        });
+    }
+}
+
 // 初始化应用
 function initApp() {
     // 绑定欢迎页面按钮事件
@@ -104,6 +131,10 @@ function initApp() {
         hostManager.connectParticipant();
     });
     
+    document.getElementById('autoDetectBtn').addEventListener('click', () => {
+        hostManager.autoDetectParticipants();
+    });
+    
     document.getElementById('startGameBtn').addEventListener('click', () => {
         hostManager.startGame();
     });
@@ -127,6 +158,29 @@ function initApp() {
     
     document.getElementById('endGameBtn').addEventListener('click', () => {
         hostManager.endGame();
+    });
+    
+    // 绑定邀请新参与者按钮事件
+    document.getElementById('showInviteBtn').addEventListener('click', () => {
+        hostManager.showInvitePopup();
+    });
+    
+    document.getElementById('gameAutoDetectBtn').addEventListener('click', () => {
+        hostManager.gameAutoDetectParticipants();
+    });
+    
+    document.getElementById('copyGameInviteCodeBtn').addEventListener('click', () => {
+        const textarea = document.getElementById('gameInviteCode');
+        textarea.select();
+        document.execCommand('copy');
+        
+        // 显示复制成功的临时提示
+        const btn = document.getElementById('copyGameInviteCodeBtn');
+        const originalText = btn.textContent;
+        btn.textContent = '已复制!';
+        setTimeout(() => {
+            btn.textContent = originalText;
+        }, 1500);
     });
     
     // 绑定参与者游戏界面事件
@@ -154,6 +208,9 @@ function initApp() {
     
     // 初始化复制功能
     viewManager.initClipboardFunctions();
+    
+    // 初始化汤底显示/隐藏功能
+    initSolutionToggle();
 }
 
 /**

@@ -159,6 +159,23 @@ textarea {
     margin-bottom: 30px;
 }
 
+.auto-connect {
+    margin-bottom: 30px;
+    padding: 15px;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+    text-align: center;
+}
+
+.auto-connect button {
+    margin-bottom: 10px;
+}
+
+.auto-connect .status-text {
+    color: #555;
+    font-size: 14px;
+}
+
 .code-container {
     position: relative;
     margin-bottom: 20px;
@@ -234,8 +251,33 @@ textarea {
     padding-bottom: 15px;
     margin-bottom: 15px;
     display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.game-title-container {
+    width: 100%;
+    display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
+    gap: 20px;
+}
+
+.game-title-wrap {
+    flex: 1;
+}
+
+.game-title {
+    font-size: 1.5rem;
+    margin: 0 0 8px 0;
+    padding: 12px;
+    border-radius: 6px;
+    background-color: #f8f9fa;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 200px;
+    overflow-y: auto;
 }
 
 .soup-type-display {
@@ -245,14 +287,53 @@ textarea {
     border-radius: 4px;
     font-size: 14px;
     color: #555;
+    align-self: flex-end;
+    margin-bottom: 8px;
 }
 
 .game-solution {
-    padding: 10px;
+    padding: 12px;
     background-color: #ffe6e6;
     border: 1px solid #ffcccc;
-    border-radius: 4px;
+    border-radius: 6px;
     font-weight: bold;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.6;
+    max-height: 180px;
+    overflow-y: auto;
+    box-shadow: 0 2px 5px rgba(255, 0, 0, 0.1);
+}
+
+/* 汤底容器 */
+.solution-container {
+    position: relative;
+    width: fit-content;
+}
+
+.solution-toggle {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: #e74c3c;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 2;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.solution-toggle:hover {
+    background-color: #c0392b;
 }
 
 .game-main {
@@ -414,20 +495,30 @@ textarea {
 
 /* 游戏结束样式 */
 .game-result {
-    margin: 30px 0;
+    margin: 20px 0;
     padding: 20px;
-    background-color: #f8f9fa;
+    border: 1px solid #eee;
     border-radius: 8px;
+    background-color: #f9f9f9;
+    max-width: 800px;
 }
 
 .game-result h3 {
-    color: #7f8c8d;
-    margin-bottom: 5px;
+    margin-top: 0;
+    color: #333;
 }
 
-.game-result p {
-    font-size: 18px;
+.game-result .result-content {
+    padding: 15px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
     margin-bottom: 20px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.6;
+    max-height: 300px;
+    overflow-y: auto;
 }
 
 /* 响应式调整 */
@@ -439,4 +530,58 @@ textarea {
     .game-sidebar {
         width: 100%;
     }
+}
+
+/* 弹窗样式 */
+.popup {
+    display: none;
+    position: fixed;
+    z-index: 100;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.popup-content {
+    position: relative;
+    background-color: #fff;
+    margin: 10% auto;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    width: 500px;
+    max-width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.close-popup {
+    position: absolute;
+    right: 20px;
+    top: 10px;
+    font-size: 24px;
+    font-weight: bold;
+    color: #555;
+    cursor: pointer;
+}
+
+.close-popup:hover {
+    color: #000;
+}
+
+.popup h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+.popup h4 {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.invite-controls {
+    margin-top: 10px;
+    text-align: center;
 } 

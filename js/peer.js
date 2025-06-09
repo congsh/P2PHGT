@@ -34,7 +34,8 @@ class PeerManager {
             hostId: this.myId,
             roomSettings: roomSettings
         };
-        return btoa(JSON.stringify(inviteData));
+        // 使用 encodeURIComponent 处理 Unicode 字符
+        return btoa(encodeURIComponent(JSON.stringify(inviteData)));
     }
 
     /**
@@ -44,7 +45,8 @@ class PeerManager {
      */
     parseInviteCode(inviteCode) {
         try {
-            return JSON.parse(atob(inviteCode));
+            // 解码时先用atob解码，再用decodeURIComponent解码Unicode
+            return JSON.parse(decodeURIComponent(atob(inviteCode)));
         } catch (e) {
             console.error('邀请码解析失败:', e);
             return null;
@@ -83,8 +85,8 @@ class PeerManager {
                 // 设置接收消息的处理
                 this._setupPeerEvents(peer, hostId, "主持人");
 
-                // 返回编码后的响应数据
-                resolve(btoa(JSON.stringify(responseData)));
+                // 返回编码后的响应数据（支持Unicode）
+                resolve(btoa(encodeURIComponent(JSON.stringify(responseData))));
             });
         });
     }
@@ -97,7 +99,7 @@ class PeerManager {
     processResponseCode(responseCode) {
         try {
             console.log("[主持人] 开始解析响应码...");
-            const responseData = JSON.parse(atob(responseCode));
+            const responseData = JSON.parse(decodeURIComponent(atob(responseCode)));
             const participantId = responseData.participantId;
             const nickname = responseData.nickname;
             const signalData = responseData.signalData;
@@ -146,13 +148,13 @@ class PeerManager {
                     
                     // 在临时存储中保存应答数据
                     try {
-                        localStorage.setItem(signalChannel, btoa(JSON.stringify(answerData)));
+                        localStorage.setItem(signalChannel, btoa(encodeURIComponent(JSON.stringify(answerData))));
                         console.log(`[主持人] 应答信号已保存到临时通道: ${signalChannel}`);
                     } catch (e) {
                         console.error("[主持人] 无法保存应答信号:", e);
                     }
                     
-                    const answerCode = btoa(JSON.stringify(answerData));
+                    const answerCode = btoa(encodeURIComponent(JSON.stringify(answerData)));
                     console.log("[主持人] 应答码生成完毕，长度:", answerCode.length);
 
                     resolve({
@@ -181,7 +183,7 @@ class PeerManager {
     processAnswerCode(answerCode) {
         try {
             console.log("开始处理主持人应答码");
-            const answerData = JSON.parse(atob(answerCode));
+            const answerData = JSON.parse(decodeURIComponent(atob(answerCode)));
             const hostId = answerData.hostId;
             const signalData = answerData.signalData;
             

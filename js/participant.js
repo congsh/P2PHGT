@@ -56,21 +56,61 @@ const participantManager = {
             appState.gameInfo.title = inviteData.roomSettings.title;
             appState.gameInfo.rules = inviteData.roomSettings.rules;
             
+            // 判断是否是加入进行中的游戏
+            const isJoiningActiveGame = inviteData.roomSettings.gameInProgress === true;
+            if (isJoiningActiveGame) {
+                console.log("[参与者] 正在加入进行中的游戏");
+                // 可以预先加载一些游戏状态
+                if (inviteData.roomSettings.gameState) {
+                    console.log("[参与者] 预加载游戏状态...");
+                    // 这些状态会在连接成功后被更完整的状态更新覆盖
+                }
+            }
+            
             console.log("[参与者] 生成响应码...");
             // 生成响应码
             appState.peerManager.generateResponseCode(inviteData.hostId, nickname)
                 .then(responseCode => {
                     console.log("[参与者] 响应码生成成功，长度:", responseCode.length);
+                    
+                    // 保存响应码到隐藏字段（用于手动连接备用）
                     document.getElementById('responseCode').value = responseCode;
                     
-                    // 更新提示信息，简化流程
-                    const infoText = document.querySelector('.info-text');
-                    if (infoText) {
-                        infoText.innerHTML = `
-                            <div style="margin-bottom: 10px;">
-                                请将上方响应码复制给主持人，然后等待连接建立
-                            </div>
-                        `;
+                    // 自动将响应码保存到主持人可以检测的位置
+                    const waitingResponseKey = 'webrtc_waiting_responses';
+                    let waitingResponses = [];
+                    try {
+                        const storedResponses = localStorage.getItem(waitingResponseKey);
+                        if (storedResponses) {
+                            waitingResponses = JSON.parse(storedResponses);
+                        }
+                    } catch (e) {
+                        console.error("[参与者] 读取等待响应失败:", e);
+                    }
+                    
+                    // 添加新响应并存储
+                    waitingResponses.push({
+                        timestamp: new Date().getTime(),
+                        hostId: inviteData.hostId,
+                        responseCode: responseCode,
+                        nickname: nickname
+                    });
+                    
+                    try {
+                        localStorage.setItem(waitingResponseKey, encodeURIComponent(JSON.stringify(waitingResponses)));
+                        console.log("[参与者] 响应码已存储到共享区域，等待主持人检测");
+                    } catch (e) {
+                        console.error("[参与者] 存储响应码失败:", e);
+                        // 出错时显示手动连接区域
+                        document.querySelector('.connection-info').style.display = 'block';
+                        const infoText = document.querySelector('.info-text');
+                        if (infoText) {
+                            infoText.innerHTML = `
+                                <div style="margin-bottom: 10px; color: #e74c3c;">
+                                    自动连接失败，请手动将上方响应码复制给主持人
+                                </div>
+                            `;
+                        }
                     }
                     
                     // 切换到等待连接视图
@@ -247,7 +287,7 @@ const participantManager = {
                 appState.gameInfo.rules = message.payload.rules;
                 
                 // 更新UI显示
-                document.getElementById('participantGameTitle').textContent = message.payload.title;
+                document.getElementById('participantGameTitle').innerHTML = message.payload.title.replace(/\n/g, '<br>');
                 
                 // 显示汤底类型
                 const soupTypeElement = document.getElementById('participantSoupType');
@@ -286,6 +326,14 @@ const participantManager = {
                 // 如果有聊天历史，加载历史消息
                 if (message.payload.history && message.payload.history.length > 0) {
                     console.log("[参与者] 加载历史消息, 数量:", message.payload.history.length);
+                    
+                    // 清空现有的聊天历史显示，避免重复
+                    const chatHistory = document.getElementById('participantChatHistory');
+                    if (chatHistory) {
+                        chatHistory.innerHTML = '';
+                    }
+                    
+                    // 加载服务器发送的聊天历史记录
                     message.payload.history.forEach(msg => {
                         participantManager.appendToChatHistory(msg);
                     });
@@ -334,6 +382,13 @@ const participantManager = {
                         loadingElement.innerHTML = '<p>连接已确认，等待主持人开始游戏...</p>';
                     }
                 }
+                else if (message.payload.type === 'participant_joined') {
+                    // 处理新参与者加入的消息
+                    participantManager.appendToChatHistory({
+                        type: 'system',
+                        content: message.payload.message
+                    });
+                }
                 else {
                     // 其他互动消息
                     let actionText = '';
@@ -356,8 +411,8 @@ const participantManager = {
                 break;
                 
             case 'H2A_GAME_END': // 游戏结束
-                document.getElementById('endGameTitle').textContent = appState.gameInfo.title;
-                document.getElementById('endGameSolution').textContent = message.payload.solution;
+                document.getElementById('endGameTitle').innerHTML = appState.gameInfo.title.replace(/\n/g, '<br>');
+                document.getElementById('endGameSolution').innerHTML = message.payload.solution.replace(/\n/g, '<br>');
                 viewManager.switchTo('gameEndView');
                 break;
         }

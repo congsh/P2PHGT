@@ -143,8 +143,8 @@ const hostManager = {
         });
         
         // 更新UI
-        document.getElementById('hostGameTitle').textContent = appState.gameInfo.title;
-        document.getElementById('hostSolutionDisplay').textContent = `汤底: ${appState.gameInfo.solution}`;
+        document.getElementById('hostGameTitle').innerHTML = appState.gameInfo.title.replace(/\n/g, '<br>');
+        document.getElementById('hostSolutionDisplay').innerHTML = appState.gameInfo.solution.replace(/\n/g, '<br>');
         document.getElementById('participantsCount').textContent = connectedPeers.length;
         
         // 显示参与者列表
@@ -249,8 +249,8 @@ const hostManager = {
         });
         
         // 显示结束游戏界面
-        document.getElementById('endGameTitle').textContent = appState.gameInfo.title;
-        document.getElementById('endGameSolution').textContent = appState.gameInfo.solution;
+        document.getElementById('endGameTitle').innerHTML = appState.gameInfo.title.replace(/\n/g, '<br>');
+        document.getElementById('endGameSolution').innerHTML = appState.gameInfo.solution.replace(/\n/g, '<br>');
         viewManager.switchTo('gameEndView');
     },
     
@@ -539,6 +539,362 @@ const hostManager = {
         if (handItem) {
             handItem.remove();
         }
+    },
+    
+    /**
+     * 自动检测并连接等待中的参与者
+     */
+    autoDetectParticipants: function() {
+        console.log("[主持人] 开始自动检测等待连接的参与者");
+        const statusText = document.querySelector('.status-text');
+        if (statusText) {
+            statusText.textContent = "正在检测新参与者...";
+        }
+        
+        // 从共享存储区域读取等待的响应码
+        const waitingResponseKey = 'webrtc_waiting_responses';
+        let waitingResponses = [];
+        try {
+            const storedResponses = localStorage.getItem(waitingResponseKey);
+            if (storedResponses) {
+                waitingResponses = JSON.parse(decodeURIComponent(storedResponses));
+            }
+        } catch (e) {
+            console.error("[主持人] 读取等待响应失败:", e);
+            if (statusText) {
+                statusText.textContent = "检测失败，请稍后再试";
+                setTimeout(() => {
+                    statusText.textContent = "点击上方按钮自动连接新参与者";
+                }, 3000);
+            }
+            return;
+        }
+        
+        if (waitingResponses.length === 0) {
+            console.log("[主持人] 没有找到等待连接的参与者");
+            if (statusText) {
+                statusText.textContent = "没有找到等待连接的参与者";
+                setTimeout(() => {
+                    statusText.textContent = "点击上方按钮自动连接新参与者";
+                }, 3000);
+            }
+            return;
+        }
+        
+        console.log(`[主持人] 找到 ${waitingResponses.length} 个等待连接的参与者`);
+        
+        // 创建一个副本，用于跟踪已处理的响应
+        const processedIndices = [];
+        
+        // 处理响应码并建立连接
+        const processNextResponse = (index) => {
+            if (index >= waitingResponses.length) {
+                // 所有响应都已处理
+                // 仅从存储中移除已处理的响应
+                if (processedIndices.length > 0) {
+                    // 获取最新的等待响应列表（可能有新的加入）
+                    try {
+                        let currentResponses = [];
+                        const currentStoredResponses = localStorage.getItem(waitingResponseKey);
+                        if (currentStoredResponses) {
+                            currentResponses = JSON.parse(decodeURIComponent(currentStoredResponses));
+                        }
+                        
+                        // 过滤掉已处理的响应
+                        const remainingResponses = currentResponses.filter((_, i) => !processedIndices.includes(i));
+                        localStorage.setItem(waitingResponseKey, encodeURIComponent(JSON.stringify(remainingResponses)));
+                        console.log(`[主持人] 已处理 ${processedIndices.length} 个连接，剩余 ${remainingResponses.length} 个等待处理`);
+                    } catch (e) {
+                        console.error("[主持人] 更新等待响应失败:", e);
+                    }
+                }
+                
+                if (statusText) {
+                    statusText.textContent = `已连接所有参与者 (${processedIndices.length}人)`;
+                    setTimeout(() => {
+                        statusText.textContent = "点击上方按钮自动连接新参与者";
+                    }, 3000);
+                }
+                return;
+            }
+            
+            const response = waitingResponses[index];
+            console.log(`[主持人] 正在处理第 ${index + 1} 个参与者: ${response.nickname}`);
+            
+            // 处理当前响应
+            appState.peerManager.processResponseCode(response.responseCode)
+                .then(result => {
+                    console.log(`[主持人] 参与者 ${response.nickname} 连接处理成功`);
+                    
+                    // 添加到UI列表
+                    this.addParticipantToList(result.participantId, result.nickname);
+                    
+                    // 记录已处理的索引
+                    processedIndices.push(index);
+                    
+                    // 更新状态文本
+                    if (statusText) {
+                        statusText.textContent = `已连接: ${response.nickname} (${processedIndices.length}/${waitingResponses.length})`;
+                    }
+                    
+                    // 继续处理下一个
+                    setTimeout(() => {
+                        processNextResponse(index + 1);
+                    }, 500);
+                })
+                .catch(error => {
+                    console.error(`[主持人] 处理参与者 ${response.nickname} 响应失败:`, error);
+                    
+                    // 继续处理下一个
+                    setTimeout(() => {
+                        processNextResponse(index + 1);
+                    }, 500);
+                });
+        };
+        
+        // 开始处理第一个响应
+        processNextResponse(0);
+    },
+    
+    /**
+     * 显示邀请弹窗
+     */
+    showInvitePopup: function() {
+        const popup = document.getElementById('invitePopup');
+        if (popup) {
+            // 过滤聊天历史，只保留主要消息
+            const filteredHistory = appState.chatHistory.filter(msg => {
+                return msg.type === 'clue' || 
+                       msg.type === 'answer' || 
+                       msg.type === 'system' ||
+                       msg.type === 'question';
+            });
+            
+            // 生成新的邀请码（包含当前游戏状态）
+            const roomSettings = {
+                title: appState.gameInfo.title,
+                rules: appState.gameInfo.rules,
+                gameInProgress: true,
+                // 添加当前游戏状态信息，供新参与者同步
+                gameState: {
+                    chatHistory: filteredHistory,
+                    participants: appState.peerManager.getConnectedPeers().map(p => p.nickname)
+                }
+            };
+            
+            // 生成邀请码并显示
+            const inviteCode = appState.peerManager.generateInviteCode(roomSettings);
+            document.getElementById('gameInviteCode').value = inviteCode;
+            
+            // 显示弹窗
+            popup.style.display = 'block';
+            
+            // 绑定关闭按钮事件
+            const closeBtn = popup.querySelector('.close-popup');
+            if (closeBtn) {
+                closeBtn.onclick = function() {
+                    popup.style.display = 'none';
+                };
+            }
+            
+            // 点击弹窗外部区域关闭
+            window.onclick = function(event) {
+                if (event.target === popup) {
+                    popup.style.display = 'none';
+                }
+            };
+        }
+    },
+    
+    /**
+     * 在游戏中自动检测并连接新参与者
+     */
+    gameAutoDetectParticipants: function() {
+        console.log("[主持人] 游戏中检测新参与者");
+        const statusText = document.querySelector('#invitePopup .status-text');
+        if (statusText) {
+            statusText.textContent = "正在检测新参与者...";
+        }
+        
+        // 从共享存储区域读取等待的响应码
+        const waitingResponseKey = 'webrtc_waiting_responses';
+        let waitingResponses = [];
+        try {
+            const storedResponses = localStorage.getItem(waitingResponseKey);
+            if (storedResponses) {
+                waitingResponses = JSON.parse(decodeURIComponent(storedResponses));
+            }
+        } catch (e) {
+            console.error("[主持人] 读取等待响应失败:", e);
+            if (statusText) {
+                statusText.textContent = "检测失败，请稍后再试";
+                setTimeout(() => {
+                    statusText.textContent = "点击上方按钮自动连接新参与者";
+                }, 3000);
+            }
+            return;
+        }
+        
+        if (waitingResponses.length === 0) {
+            console.log("[主持人] 没有找到等待连接的参与者");
+            if (statusText) {
+                statusText.textContent = "没有找到等待连接的参与者";
+                setTimeout(() => {
+                    statusText.textContent = "点击上方按钮自动连接新参与者";
+                }, 3000);
+            }
+            return;
+        }
+        
+        console.log(`[主持人] 找到 ${waitingResponses.length} 个等待连接的参与者`);
+        
+        // 创建一个副本，用于跟踪已处理的响应
+        const processedIndices = [];
+        
+        // 处理响应码并建立连接
+        const processNextResponse = (index) => {
+            if (index >= waitingResponses.length) {
+                // 所有响应都已处理
+                // 仅从存储中移除已处理的响应
+                if (processedIndices.length > 0) {
+                    // 获取最新的等待响应列表（可能有新的加入）
+                    try {
+                        let currentResponses = [];
+                        const currentStoredResponses = localStorage.getItem(waitingResponseKey);
+                        if (currentStoredResponses) {
+                            currentResponses = JSON.parse(decodeURIComponent(currentStoredResponses));
+                        }
+                        
+                        // 过滤掉已处理的响应
+                        const remainingResponses = currentResponses.filter((_, i) => !processedIndices.includes(i));
+                        localStorage.setItem(waitingResponseKey, encodeURIComponent(JSON.stringify(remainingResponses)));
+                        console.log(`[主持人] 游戏中已处理 ${processedIndices.length} 个连接，剩余 ${remainingResponses.length} 个等待处理`);
+                    } catch (e) {
+                        console.error("[主持人] 更新等待响应失败:", e);
+                    }
+                }
+                
+                if (statusText) {
+                    statusText.textContent = `已连接所有参与者 (${processedIndices.length}人)`;
+                    setTimeout(() => {
+                        statusText.textContent = "点击上方按钮自动连接新参与者";
+                    }, 3000);
+                }
+                return;
+            }
+            
+            const response = waitingResponses[index];
+            console.log(`[主持人] 正在处理第 ${index + 1} 个参与者: ${response.nickname}`);
+            
+            // 处理当前响应
+            appState.peerManager.processResponseCode(response.responseCode)
+                .then(result => {
+                    console.log(`[主持人] 参与者 ${response.nickname} 连接处理成功`);
+                    
+                    // 添加到UI列表
+                    this.addParticipantToList(result.participantId, result.nickname);
+                    this.addParticipantToGame(result.participantId, result.nickname);
+                    
+                    // 记录已处理的索引
+                    processedIndices.push(index);
+                    
+                    // 向新参与者发送当前游戏状态
+                    setTimeout(() => {
+                        this.syncGameStateToNewParticipant(result.participantId);
+                    }, 1000);
+                    
+                    // 更新状态文本
+                    if (statusText) {
+                        statusText.textContent = `已连接: ${response.nickname} (${processedIndices.length}/${waitingResponses.length})`;
+                    }
+                    
+                    // 继续处理下一个
+                    setTimeout(() => {
+                        processNextResponse(index + 1);
+                    }, 500);
+                })
+                .catch(error => {
+                    console.error(`[主持人] 处理参与者 ${response.nickname} 响应失败:`, error);
+                    
+                    // 继续处理下一个
+                    setTimeout(() => {
+                        processNextResponse(index + 1);
+                    }, 500);
+                });
+        };
+        
+        // 开始处理第一个响应
+        processNextResponse(0);
+    },
+    
+    /**
+     * 将参与者添加到游戏中（在游戏已经开始后）
+     */
+    addParticipantToGame: function(participantId, nickname) {
+        // 更新游戏UI显示
+        const participantsList = document.getElementById('gameParticipantsList');
+        const count = document.getElementById('participantsCount');
+        
+        // 添加到列表
+        const li = document.createElement('li');
+        li.textContent = nickname;
+        li.setAttribute('data-id', participantId);
+        participantsList.appendChild(li);
+        
+        // 更新计数
+        count.textContent = participantsList.childElementCount;
+        
+        // 广播新参与者加入的消息给所有参与者
+        const joinMessage = {
+            type: 'H2A_INTERACTION_RELAY',
+            payload: {
+                type: 'participant_joined',
+                nickname: nickname,
+                message: `${nickname} 加入了游戏`
+            }
+        };
+        
+        appState.peerManager.sendToParticipant(null, joinMessage);
+        
+        // 添加到本地聊天历史
+        this.appendToChatHistory({
+            type: 'system',
+            content: `${nickname} 加入了游戏`
+        });
+    },
+    
+    /**
+     * 向新参与者同步当前游戏状态
+     */
+    syncGameStateToNewParticipant: function(participantId) {
+        // 准备游戏状态信息
+        const connectedPeers = appState.peerManager.getConnectedPeers();
+        
+        // 过滤聊天历史，只保留主持人消息和系统消息
+        const filteredHistory = appState.chatHistory.filter(msg => {
+            // 保留由主持人发送的消息（情报、回答）
+            // 保留系统消息
+            // 保留问题消息（因为问题通常是转发的，只有一份）
+            return msg.type === 'clue' || 
+                   msg.type === 'answer' || 
+                   msg.type === 'system' ||
+                   msg.type === 'question';
+        });
+        
+        const gameState = {
+            title: appState.gameInfo.title,
+            rules: appState.gameInfo.rules,
+            participants: connectedPeers.map(p => p.nickname),
+            history: filteredHistory  // 发送过滤后的聊天历史
+        };
+        
+        // 向新参与者发送游戏状态
+        appState.peerManager.sendToParticipant(participantId, {
+            type: 'H2A_GAME_STATE',
+            payload: gameState
+        });
+        
+        console.log(`[主持人] 已向参与者 ${participantId} 同步游戏状态, 历史消息数量: ${filteredHistory.length}`);
     }
 };
 
