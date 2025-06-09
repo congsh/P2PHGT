@@ -106,8 +106,42 @@ function initApp() {
         // 如果URL中包含房间码，延迟一点执行，确保DOM已完全加载
         setTimeout(() => {
             document.getElementById('inviteCode').value = roomCodeFromUrl;
+            document.getElementById('participantName').focus(); // 聚焦到昵称输入框
             viewManager.switchTo('participantJoinView');
-        }, 100);
+            
+            // 显示提示信息
+            const infoElement = document.createElement('div');
+            infoElement.className = 'info-message';
+            infoElement.textContent = '已自动填写邀请码，请输入昵称并点击"加入游戏"';
+            infoElement.style.color = '#2ecc71';
+            infoElement.style.marginTop = '10px';
+            infoElement.style.textAlign = 'center';
+            
+            const formGroup = document.querySelector('#participantJoinView .button-group');
+            formGroup.parentNode.insertBefore(infoElement, formGroup);
+            
+            // 5秒后自动移除提示
+            setTimeout(() => {
+                if (infoElement.parentNode) {
+                    infoElement.parentNode.removeChild(infoElement);
+                }
+            }, 5000);
+        }, 300); // 增加延迟，确保DOM完全加载
+    } else {
+        // 检查本地存储中是否有待处理的邀请码
+        const pendingCode = sessionStorage.getItem('pending_invite_code');
+        const loadedRoomCode = sessionStorage.getItem('loaded_room_code');
+        
+        if (pendingCode || loadedRoomCode) {
+            const inviteCode = loadedRoomCode || pendingCode;
+            console.log(`[DEBUG] 发现本地存储的邀请码: ${inviteCode}`);
+            
+            // 延迟执行，确保DOM已完全加载
+            setTimeout(() => {
+                document.getElementById('inviteCode').value = inviteCode;
+                viewManager.switchTo('participantJoinView');
+            }, 300);
+        }
     }
     
     // 绑定欢迎页面按钮事件
@@ -301,6 +335,16 @@ function resetAppState() {
     
     // 清空举手列表
     document.getElementById('handsRaisedList').innerHTML = '';
+    
+    // 清理会话存储中的相关数据
+    sessionStorage.removeItem('pending_invite_code');
+    sessionStorage.removeItem('loaded_room_code');
+    
+    // 移除可能存在的信息提示
+    const infoMessage = document.querySelector('.info-message');
+    if (infoMessage && infoMessage.parentNode) {
+        infoMessage.parentNode.removeChild(infoMessage);
+    }
 }
 
 // 页面加载完成后初始化

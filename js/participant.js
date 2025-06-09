@@ -58,8 +58,9 @@ const participantManager = {
                 this._processInviteData(inviteDataPromise, nickname, inviteCode);
             }
         } catch (error) {
-            console.error("[DEBUG] joinGame方法捕获到异常:", error);
+            console.error("[参与者] 加入游戏失败:", error);
             alert('解析邀请码失败: ' + error.message);
+            viewManager.switchTo('participantJoinView'); // 返回加入界面
         }
     },
     

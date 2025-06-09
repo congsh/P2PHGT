@@ -146,9 +146,11 @@ class PeerManager {
             // 如果本地没有数据，尝试从URL参数获取
             console.log(`[DEBUG] 本地未找到邀请码数据，尝试从URL参数获取`);
             const urlParams = new URLSearchParams(window.location.search);
+            const roomCode = urlParams.get('room');
             const encodedData = urlParams.get('data');
             
-            if (encodedData) {
+            // 检查URL中的邀请码是否与当前处理的邀请码匹配
+            if (roomCode && roomCode.toUpperCase() === formattedCode && encodedData) {
                 console.log(`[DEBUG] 从URL参数获取到编码数据，长度: ${encodedData.length}`);
                 try {
                     const decodedData = JSON.parse(decodeURIComponent(atob(encodedData)));
@@ -164,6 +166,7 @@ class PeerManager {
                     return decodedData;
                 } catch (e) {
                     console.error(`[DEBUG] URL参数解码失败:`, e);
+                    throw new Error('URL参数解码失败，请尝试刷新页面或重新获取邀请链接');
                 }
             }
             
@@ -184,6 +187,18 @@ class PeerManager {
                     return decodedData;
                 } catch (e) {
                     console.error(`[DEBUG] sessionStorage数据解码失败:`, e);
+                    throw new Error('会话数据解码失败，请刷新页面重试');
+                }
+            }
+            
+            // 检查是否有已经加载的房间数据
+            const loadedRoomCode = sessionStorage.getItem('loaded_room_code');
+            if (loadedRoomCode && loadedRoomCode === formattedCode) {
+                // 尝试再次从本地存储获取数据
+                const reloadedData = localStorage.getItem(shortCodeKey);
+                if (reloadedData) {
+                    console.log(`[DEBUG] 从已加载的房间数据中获取信息`);
+                    return JSON.parse(decodeURIComponent(reloadedData));
                 }
             }
             
@@ -635,8 +650,8 @@ class PeerManager {
         if (roomCode) {
             console.log(`[DEBUG] URL中找到邀请码: ${roomCode}`);
             
-            // 清除URL参数但不刷新页面
-            window.history.replaceState({}, document.title, window.location.pathname);
+            // 将邀请码保存到会话存储，以便后续使用
+            sessionStorage.setItem('pending_invite_code', roomCode);
             
             if (encodedData) {
                 console.log(`[DEBUG] URL中找到编码数据，长度: ${encodedData.length}`);
@@ -653,17 +668,23 @@ class PeerManager {
                     // 表明房间数据已加载
                     sessionStorage.setItem('loaded_room_code', roomCode);
                     console.log(`[DEBUG] 已加载房间数据: ${roomCode}`);
+                    
+                    // 不要立即清除URL参数，让页面加载完成后再清除
+                    setTimeout(() => {
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                        console.log(`[DEBUG] URL参数已清除`);
+                    }, 1000);
+                    
                     return roomCode;
                 } catch (e) {
                     console.error(`[DEBUG] 解析URL编码数据失败:`, e);
+                    return null;
                 }
             } else {
-                console.log(`[DEBUG] URL中没有找到编码数据`);
+                console.log(`[DEBUG] URL中没有找到编码数据，只有邀请码`);
+                // 如果只有邀请码没有数据，可能需要从其他地方获取数据
+                return roomCode;
             }
-            
-            // 如果没有找到编码数据或解析失败，保存邀请码以便后续使用
-            sessionStorage.setItem('pending_invite_code', roomCode);
-            console.log(`[DEBUG] 已保存待处理的邀请码: ${roomCode}`);
         } else {
             console.log(`[DEBUG] URL中没有找到邀请码`);
         }
