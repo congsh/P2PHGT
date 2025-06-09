@@ -130,7 +130,25 @@ function initApp() {
     
     // 绑定参与者加入房间页面事件
     document.getElementById('joinGameBtn').addEventListener('click', () => {
-        participantManager.joinGame();
+        // 获取昵称和邀请码
+        const nickname = document.getElementById('participantName').value.trim();
+        const inviteCode = document.getElementById('inviteCode').value.trim();
+        
+        // 验证必填字段
+        if (!nickname) {
+            alert('请输入你的昵称');
+            return;
+        }
+        
+        if (!inviteCode) {
+            alert('请输入主持人分享的邀请码');
+            return;
+        }
+        
+        console.log("[参与者] 昵称和邀请码验证通过");
+        
+        // 调用参与者管理器的加入游戏方法
+        participantManager.joinGame(nickname, inviteCode);
     });
     
     document.getElementById('backFromJoinBtn').addEventListener('click', () => {
@@ -169,6 +187,11 @@ function initApp() {
     
     document.getElementById('endGameBtn').addEventListener('click', () => {
         hostManager.endGame();
+    });
+    
+    // 绑定继续游戏按钮事件
+    document.getElementById('continueGameBtn').addEventListener('click', () => {
+        hostManager.showContinueGamePopup();
     });
     
     // 绑定邀请新参与者按钮事件

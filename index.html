@@ -174,7 +174,10 @@
                                 <button id="showInviteBtn" class="btn btn-small">邀请新参与者</button>
                             </div>
                         </div>
-                        <button id="endGameBtn" class="btn btn-danger">结束游戏</button>
+                        <div class="game-control-buttons">
+                            <button id="continueGameBtn" class="btn btn-warning">继续游戏</button>
+                            <button id="endGameBtn" class="btn btn-danger">结束游戏</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -249,6 +252,36 @@
                 <div class="auto-connect">
                     <button id="gameAutoDetectBtn" class="btn btn-primary">自动检测并连接参与者</button>
                     <p class="status-text">点击上方按钮自动连接新参与者</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 继续游戏弹窗 -->
+        <div id="continueGamePopup" class="popup">
+            <div class="popup-content">
+                <span class="close-popup">&times;</span>
+                <h3>继续游戏</h3>
+                <p>输入新的汤面和汤底，当前游戏记录将被保留</p>
+                <div class="form-group">
+                    <label for="newSoupTitle">新汤面（所有人可见的谜题）：</label>
+                    <textarea id="newSoupTitle" rows="3" placeholder="请输入新的汤面内容..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="newSoupSolution">新汤底（只有主持人可见的答案）：</label>
+                    <textarea id="newSoupSolution" rows="3" placeholder="请输入新的汤底..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>汤底类型：</label>
+                    <div class="radio-group">
+                        <input type="radio" id="newRedSoup" name="newSoupType" value="red" checked>
+                        <label for="newRedSoup">红汤</label>
+                        <input type="radio" id="newOtherSoup" name="newSoupType" value="other">
+                        <label for="newOtherSoup">非红汤</label>
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button id="startNewSoupBtn" class="btn btn-primary">开始新汤</button>
+                    <button id="cancelNewSoupBtn" class="btn btn-secondary">取消</button>
                 </div>
             </div>
         </div>

@@ -6,31 +6,15 @@
 const participantManager = {
     /**
      * 加入游戏
+     * @param {string} nickname - 参与者昵称
+     * @param {string} inviteCode - 邀请码
      */
-    joinGame: function() {
-        console.log("[参与者] 开始加入游戏流程");
-        // 获取昵称和邀请码
-        const nickname = document.getElementById('participantName').value.trim();
-        const inviteCode = document.getElementById('inviteCode').value.trim();
-        
-        // 验证必填字段
-        if (!nickname) {
-            alert('请输入你的昵称');
-            return;
-        }
-        
-        if (!inviteCode) {
-            alert('请输入主持人分享的邀请码');
-            return;
-        }
-        
-        console.log("[参与者] 昵称和邀请码验证通过");
-        
-        // 保存参与者信息
+    joinGame: function(nickname, inviteCode) {
+        console.log(`[DEBUG] joinGame开始，昵称: ${nickname}, 邀请码: ${inviteCode}`);
         appState.role = 'participant';
         appState.nickname = nickname;
         
-        console.log("[参与者] 初始化P2P连接管理器");
+        console.log("[DEBUG] 初始化P2P连接管理器");
         // 初始化P2P管理器
         appState.peerManager = new PeerManager(
             'participant',
@@ -41,111 +25,166 @@ const participantManager = {
         
         try {
             // 解析邀请码
-            console.log("[参与者] 解析邀请码...");
-            const inviteData = appState.peerManager.parseInviteCode(inviteCode);
+            console.log("[DEBUG] 调用parseInviteCode解析邀请码...");
+            const inviteDataPromise = appState.peerManager.parseInviteCode(inviteCode);
+            console.log("[DEBUG] parseInviteCode返回结果类型:", typeof inviteDataPromise);
+            console.log("[DEBUG] 是否为Promise:", inviteDataPromise instanceof Promise);
             
-            if (!inviteData || !inviteData.hostId || !inviteData.roomSettings) {
-                console.error("[参与者] 邀请码格式错误:", inviteData);
-                throw new Error('邀请码格式错误');
-            }
-            
-            console.log("[参与者] 解析成功，主持人ID:", inviteData.hostId);
-            console.log("[参与者] 房间设置:", inviteData.roomSettings);
-            
-            // 保存游戏信息
-            appState.gameInfo.title = inviteData.roomSettings.title;
-            appState.gameInfo.rules = inviteData.roomSettings.rules;
-            
-            // 判断是否是加入进行中的游戏
-            const isJoiningActiveGame = inviteData.roomSettings.gameInProgress === true;
-            if (isJoiningActiveGame) {
-                console.log("[参与者] 正在加入进行中的游戏");
-                // 可以预先加载一些游戏状态
-                if (inviteData.roomSettings.gameState) {
-                    console.log("[参与者] 预加载游戏状态...");
-                    // 这些状态会在连接成功后被更完整的状态更新覆盖
+            // 处理可能的Promise返回
+            if (inviteDataPromise instanceof Promise) {
+                console.log("[DEBUG] 邀请码解析返回Promise，等待在线数据...");
+                
+                // 显示加载提示
+                viewManager.switchTo('participantWaitingView');
+                const infoText = document.querySelector('.info-text');
+                if (infoText) {
+                    infoText.innerHTML = '<p>正在从在线服务获取房间信息，请稍候...</p>';
                 }
-            }
-            
-            console.log("[参与者] 生成响应码...");
-            // 生成响应码
-            appState.peerManager.generateResponseCode(inviteData.hostId, nickname)
-                .then(responseCode => {
-                    console.log("[参与者] 响应码生成成功，长度:", responseCode.length);
-                    
-                    // 保存响应码到隐藏字段（用于手动连接备用）
-                    document.getElementById('responseCode').value = responseCode;
-                    
-                    // 自动将响应码保存到主持人可以检测的位置
-                    const waitingResponseKey = 'webrtc_waiting_responses';
-                    let waitingResponses = [];
-                    try {
-                        const storedResponses = localStorage.getItem(waitingResponseKey);
-                        if (storedResponses) {
-                            waitingResponses = JSON.parse(storedResponses);
-                        }
-                    } catch (e) {
-                        console.error("[参与者] 读取等待响应失败:", e);
-                    }
-                    
-                    // 添加新响应并存储
-                    waitingResponses.push({
-                        timestamp: new Date().getTime(),
-                        hostId: inviteData.hostId,
-                        responseCode: responseCode,
-                        nickname: nickname
+                
+                // 处理Promise
+                inviteDataPromise
+                    .then(inviteData => {
+                        console.log("[DEBUG] Promise成功解析，获取到邀请数据:", inviteData);
+                        this._processInviteData(inviteData, nickname, inviteCode);
+                    })
+                    .catch(error => {
+                        console.error("[DEBUG] Promise解析失败:", error);
+                        alert('解析邀请码失败: ' + error.message);
+                        viewManager.switchTo('participantJoinView'); // 返回加入界面
                     });
-                    
-                    try {
-                        localStorage.setItem(waitingResponseKey, encodeURIComponent(JSON.stringify(waitingResponses)));
-                        console.log("[参与者] 响应码已存储到共享区域，等待主持人检测");
-                    } catch (e) {
-                        console.error("[参与者] 存储响应码失败:", e);
-                        // 出错时显示手动连接区域
-                        document.querySelector('.connection-info').style.display = 'block';
-                        const infoText = document.querySelector('.info-text');
-                        if (infoText) {
-                            infoText.innerHTML = `
-                                <div style="margin-bottom: 10px; color: #e74c3c;">
-                                    自动连接失败，请手动将上方响应码复制给主持人
-                                </div>
-                            `;
-                        }
-                    }
-                    
-                    // 切换到等待连接视图
-                    viewManager.switchTo('participantWaitingView');
-                    
-                    // 启动自动检查应答信号的轮询
-                    console.log("[参与者] 启动信号检查轮询");
-                    const signalChannel = `webrtc_signal_${appState.peerManager.myId}`;
-                    const signalCheckInterval = setInterval(() => {
-                        try {
-                            const storedSignal = localStorage.getItem(signalChannel);
-                            if (storedSignal) {
-                                console.log(`[参与者] 发现存储的应答信号，处理中...`);
-                                const result = appState.peerManager.processAnswerCode(storedSignal);
-                                if (result) {
-                                    console.log("[参与者] 应答信号处理成功");
-                                    localStorage.removeItem(signalChannel);
-                                    clearInterval(signalCheckInterval);
-                                    
-                                    // 更新UI显示
-                                    const infoText = document.querySelector('.info-text');
-                                    if (infoText) {
-                                        infoText.innerHTML = '<p>连接建立中，请稍候...</p>';
-                                    }
-                                }
-                            }
-                        } catch (e) {
-                            console.error("[参与者] 信号检查失败:", e);
-                        }
-                    }, 1000); // 每秒检查一次
-                });
+            } else {
+                // 直接处理本地数据
+                console.log("[DEBUG] 直接处理本地数据:", inviteDataPromise);
+                this._processInviteData(inviteDataPromise, nickname, inviteCode);
+            }
         } catch (error) {
-            console.error("[参与者] 加入游戏失败:", error);
+            console.error("[DEBUG] joinGame方法捕获到异常:", error);
             alert('解析邀请码失败: ' + error.message);
         }
+    },
+    
+    /**
+     * 处理邀请数据（内部方法）
+     * @private
+     */
+    _processInviteData: function(inviteData, nickname, inviteCode) {
+        console.log("[DEBUG] _processInviteData开始处理邀请数据:", inviteData);
+        
+        if (!inviteData || !inviteData.hostId || !inviteData.roomSettings) {
+            console.error("[DEBUG] 邀请码格式错误:", inviteData);
+            throw new Error('邀请码格式错误');
+        }
+        
+        console.log("[DEBUG] 解析成功，主持人ID:", inviteData.hostId);
+        console.log("[DEBUG] 房间设置:", inviteData.roomSettings);
+        
+        // 保存游戏信息
+        appState.gameInfo.title = inviteData.roomSettings.title;
+        appState.gameInfo.rules = inviteData.roomSettings.rules;
+        console.log("[DEBUG] 已保存游戏信息到appState");
+        
+        // 判断是否是加入进行中的游戏
+        const isJoiningActiveGame = inviteData.roomSettings.gameInProgress === true;
+        if (isJoiningActiveGame) {
+            console.log("[DEBUG] 正在加入进行中的游戏");
+            // 可以预先加载一些游戏状态
+            if (inviteData.roomSettings.gameState) {
+                console.log("[DEBUG] 预加载游戏状态...");
+                // 这些状态会在连接成功后被更完整的状态更新覆盖
+            }
+        }
+        
+        console.log("[DEBUG] 开始生成响应码...");
+        // 生成响应码
+        appState.peerManager.generateResponseCode(inviteData.hostId, nickname)
+            .then(responseCode => {
+                console.log("[DEBUG] 响应码生成成功，长度:", responseCode.length);
+                
+                // 保存响应码到隐藏字段（用于手动连接备用）
+                document.getElementById('responseCode').value = responseCode;
+                console.log("[DEBUG] 响应码已保存到DOM元素");
+                
+                // 自动将响应码保存到主持人可以检测的位置
+                const waitingResponseKey = 'webrtc_waiting_responses';
+                let waitingResponses = [];
+                try {
+                    const storedResponses = localStorage.getItem(waitingResponseKey);
+                    if (storedResponses) {
+                        waitingResponses = JSON.parse(storedResponses);
+                        console.log("[DEBUG] 读取到现有等待响应:", waitingResponses.length, "条");
+                    }
+                } catch (e) {
+                    console.error("[DEBUG] 读取等待响应失败:", e);
+                }
+                
+                // 添加新响应并存储
+                waitingResponses.push({
+                    timestamp: new Date().getTime(),
+                    hostId: inviteData.hostId,
+                    responseCode: responseCode,
+                    nickname: nickname
+                });
+                console.log("[DEBUG] 已添加新响应，现共有", waitingResponses.length, "条等待响应");
+                
+                try {
+                    localStorage.setItem(waitingResponseKey, encodeURIComponent(JSON.stringify(waitingResponses)));
+                    console.log("[DEBUG] 响应码已存储到共享区域，等待主持人检测");
+                } catch (e) {
+                    console.error("[DEBUG] 存储响应码失败:", e);
+                    // 出错时显示手动连接区域
+                    document.querySelector('.connection-info').style.display = 'block';
+                    const infoText = document.querySelector('.info-text');
+                    if (infoText) {
+                        infoText.innerHTML = `
+                            <div style="margin-bottom: 10px; color: #e74c3c;">
+                                自动连接失败，请手动将上方响应码复制给主持人
+                            </div>
+                        `;
+                    }
+                }
+                
+                // 切换到等待连接视图
+                viewManager.switchTo('participantWaitingView');
+                console.log("[DEBUG] 已切换到等待连接视图");
+                
+                // 更新等待连接提示
+                const infoText = document.querySelector('.info-text');
+                if (infoText) {
+                    infoText.innerHTML = '<p>已自动处理连接请求，正在等待主持人接受连接...</p>';
+                }
+                
+                // 启动自动检查应答信号的轮询
+                console.log("[DEBUG] 启动信号检查轮询");
+                const signalChannel = `webrtc_signal_${appState.peerManager.myId}`;
+                console.log("[DEBUG] 信号通道:", signalChannel);
+                const signalCheckInterval = setInterval(() => {
+                    try {
+                        const storedSignal = localStorage.getItem(signalChannel);
+                        if (storedSignal) {
+                            console.log(`[DEBUG] 发现存储的应答信号，处理中...`);
+                            const result = appState.peerManager.processAnswerCode(storedSignal);
+                            console.log("[DEBUG] 处理应答信号结果:", result);
+                            if (result) {
+                                console.log("[DEBUG] 应答信号处理成功");
+                                localStorage.removeItem(signalChannel);
+                                clearInterval(signalCheckInterval);
+                                
+                                // 更新UI显示
+                                const infoText = document.querySelector('.info-text');
+                                if (infoText) {
+                                    infoText.innerHTML = '<p>连接建立中，请稍候...</p>';
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error("[DEBUG] 信号检查失败:", e);
+                    }
+                }, 1000); // 每秒检查一次
+            })
+            .catch(error => {
+                console.error("[DEBUG] 生成响应码失败:", error);
+                alert('生成响应码失败: ' + error.message);
+            });
     },
     
     /**
@@ -280,34 +319,42 @@ const participantManager = {
                 });
                 break;
                 
-            case 'H2A_GAME_STATE': // 游戏状态同步
-                console.log("[参与者] 收到游戏状态同步消息:", message.payload);
+            case 'H2A_GAME_STATE': // 游戏状态
+                console.log("[DEBUG] 收到游戏状态更新:", message.payload);
+                
                 // 更新游戏信息
                 appState.gameInfo.title = message.payload.title;
                 appState.gameInfo.rules = message.payload.rules;
                 
+                // 检查是否是新的汤
+                const isNewSoup = message.payload.newSoup === true;
+                
                 // 更新UI显示
                 document.getElementById('participantGameTitle').innerHTML = message.payload.title.replace(/\n/g, '<br>');
                 
-                // 显示汤底类型
+                // 显示汤的类型
                 const soupTypeElement = document.getElementById('participantSoupType');
                 if (soupTypeElement) {
-                    const soupTypeText = message.payload.rules.soupType === 'red' ? '红汤' : '非红汤';
-                    soupTypeElement.textContent = `汤底类型：${soupTypeText}`;
+                    soupTypeElement.textContent = message.payload.rules.soupType === 'red' ? '红汤' : '非红汤';
+                    soupTypeElement.className = 'soup-type-display ' + 
+                        (message.payload.rules.soupType === 'red' ? 'red-soup' : 'other-soup');
                 }
                 
-                console.log("[参与者] 更新参与者列表");
                 // 更新参与者列表
-                const participantsList = document.getElementById('participantViewList');
-                participantsList.innerHTML = '';
-                message.payload.participants.forEach(nickname => {
-                    const li = document.createElement('li');
-                    li.textContent = nickname;
-                    participantsList.appendChild(li);
-                });
-                document.getElementById('participantViewCount').textContent = message.payload.participants.length;
+                if (message.payload.participants && message.payload.participants.length > 0) {
+                    const participantsList = document.getElementById('participantViewList');
+                    const participantCount = document.getElementById('participantViewCount');
+                    
+                    participantsList.innerHTML = '';
+                    message.payload.participants.forEach(nickname => {
+                        const li = document.createElement('li');
+                        li.textContent = nickname;
+                        participantsList.appendChild(li);
+                    });
+                    
+                    participantCount.textContent = message.payload.participants.length;
+                }
                 
-                console.log("[参与者] 根据规则调整UI显示");
                 // 根据规则调整UI显示
                 if (appState.gameInfo.rules.questionMode === 'raiseHand') {
                     document.getElementById('raiseHandBtn').style.display = 'inline-block';
@@ -323,9 +370,25 @@ const participantManager = {
                     document.getElementById('throwTrashBtn').style.display = 'none';
                 }
                 
-                // 如果有聊天历史，加载历史消息
-                if (message.payload.history && message.payload.history.length > 0) {
-                    console.log("[参与者] 加载历史消息, 数量:", message.payload.history.length);
+                // 如果是新汤，添加分隔线和新汤面通知
+                if (isNewSoup) {
+                    console.log("[DEBUG] 处理新汤...");
+                    
+                    // 添加分隔消息
+                    participantManager.appendToChatHistory({
+                        type: 'system',
+                        content: '===== 新的海龟汤开始 ====='
+                    });
+                    
+                    // 添加新汤面公告
+                    participantManager.appendToChatHistory({
+                        type: 'system',
+                        content: `新的汤面：${message.payload.title}`
+                    });
+                }
+                // 如果有聊天历史且不是新汤，加载历史消息
+                else if (message.payload.history && message.payload.history.length > 0) {
+                    console.log("[DEBUG] 加载历史消息, 数量:", message.payload.history.length);
                     
                     // 清空现有的聊天历史显示，避免重复
                     const chatHistory = document.getElementById('participantChatHistory');
@@ -339,13 +402,13 @@ const participantManager = {
                     });
                 }
                 
-                console.log("[参与者] 切换到游戏视图");
+                console.log("[DEBUG] 切换到游戏视图");
                 // 切换到游戏视图
                 viewManager.switchTo('participantGameView');
                 
                 // 发送确认消息
                 try {
-                    console.log("[参与者] 发送游戏状态接收确认");
+                    console.log("[DEBUG] 发送游戏状态接收确认");
                     setTimeout(() => {
                         appState.peerManager.sendToHost({
                             type: 'C2H_INTERACTION',
@@ -356,7 +419,7 @@ const participantManager = {
                         });
                     }, 500);
                 } catch (e) {
-                    console.error("[参与者] 发送确认消息失败", e);
+                    console.error("[DEBUG] 发送确认消息失败", e);
                 }
                 break;
                 

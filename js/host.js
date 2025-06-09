@@ -272,6 +272,121 @@ const hostManager = {
     },
     
     /**
+     * 显示继续游戏弹窗
+     */
+    showContinueGamePopup: function() {
+        const popup = document.getElementById('continueGamePopup');
+        if (popup) {
+            // 清空输入框
+            document.getElementById('newSoupTitle').value = '';
+            document.getElementById('newSoupSolution').value = '';
+            document.getElementById('newRedSoup').checked = true;
+            
+            // 显示弹窗
+            popup.style.display = 'block';
+            
+            // 绑定关闭按钮事件
+            const closeBtn = popup.querySelector('.close-popup');
+            if (closeBtn) {
+                closeBtn.onclick = function() {
+                    popup.style.display = 'none';
+                };
+            }
+            
+            // 绑定取消按钮事件
+            const cancelBtn = document.getElementById('cancelNewSoupBtn');
+            if (cancelBtn) {
+                cancelBtn.onclick = function() {
+                    popup.style.display = 'none';
+                };
+            }
+            
+            // 绑定开始新汤按钮事件
+            const startBtn = document.getElementById('startNewSoupBtn');
+            if (startBtn) {
+                startBtn.onclick = function() {
+                    hostManager.continueGame();
+                };
+            }
+            
+            // 点击弹窗外部区域关闭
+            window.onclick = function(event) {
+                if (event.target === popup) {
+                    popup.style.display = 'none';
+                }
+            };
+        }
+    },
+    
+    /**
+     * 继续游戏，使用新的汤底汤面
+     */
+    continueGame: function() {
+        // 获取新汤面和汤底
+        const newSoupTitle = document.getElementById('newSoupTitle').value.trim();
+        const newSoupSolution = document.getElementById('newSoupSolution').value.trim();
+        
+        // 验证必填字段
+        if (!newSoupTitle || !newSoupSolution) {
+            alert('请填写新的汤面和汤底');
+            return;
+        }
+        
+        // 获取汤底类型
+        const newSoupType = document.querySelector('input[name="newSoupType"]:checked').value;
+        
+        // 保存原来的聊天历史
+        const oldChatHistory = [...appState.chatHistory];
+        
+        // 添加分隔消息
+        const separatorMessage = {
+            type: 'system',
+            content: '===== 新的海龟汤开始 ====='
+        };
+        
+        // 添加到聊天历史
+        this.appendToChatHistory(separatorMessage);
+        
+        // 添加新汤面公告
+        const newSoupMessage = {
+            type: 'system',
+            content: `新的汤面：${newSoupTitle}`
+        };
+        
+        // 添加到聊天历史
+        this.appendToChatHistory(newSoupMessage);
+        
+        // 更新游戏信息
+        appState.gameInfo.title = newSoupTitle;
+        appState.gameInfo.solution = newSoupSolution;
+        appState.gameInfo.rules.soupType = newSoupType;
+        
+        // 更新UI
+        document.getElementById('hostGameTitle').innerHTML = newSoupTitle.replace(/\n/g, '<br>');
+        document.getElementById('hostSolutionDisplay').innerHTML = newSoupSolution.replace(/\n/g, '<br>');
+        
+        // 向所有参与者发送新的游戏状态
+        const connectedPeers = appState.peerManager.getConnectedPeers();
+        
+        // 过滤聊天历史，只保留主要消息
+        const gameState = {
+            title: newSoupTitle,
+            rules: appState.gameInfo.rules,
+            participants: connectedPeers.map(p => p.nickname),
+            newSoup: true  // 标记这是一个新的汤
+        };
+        
+        // 向所有参与者发送游戏状态
+        appState.peerManager.sendToParticipant(null, {
+            type: 'H2A_GAME_STATE',
+            payload: gameState
+        });
+        
+        // 关闭弹窗
+        document.getElementById('continueGamePopup').style.display = 'none';
+    },
+    
+    /**
      * 处理收到的参与者消息
      * @param {Object} message - 消息对象
      * @param {string} senderId - 发送者ID

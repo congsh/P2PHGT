@@ -17,8 +17,28 @@ class PeerManager {
         this.onConnectCallback = onConnectCallback;
         this.onDisconnectCallback = onDisconnectCallback;
         this.iceServers = [
+            // 国际STUN服务器
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' },
+            // 国内可用的STUN服务器
+            { urls: 'stun:stun.qq.com:3478' },
+            { urls: 'stun:stun.miwifi.com:3478' },
+            { urls: 'stun:stun.voipbuster.com:3478' },
+            { urls: 'stun:stun.voipstunt.com:3478' },
+            // 免费TURN服务器（备用，可能不稳定）
+            {
+                urls: 'turn:openrelay.metered.ca:80',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            {
+                urls: 'turn:openrelay.metered.ca:443',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            }
         ];
         this.myId = this._generateId(); // 生成唯一ID
         this.currentInviteCode = null; // 当前邀请码
@@ -61,8 +81,10 @@ class PeerManager {
      * @returns {string} 短邀请码
      */
     generateInviteCode(roomSettings) {
+        console.log(`[DEBUG] 开始生成邀请码...`);
         // 生成短邀请码
         const shortCode = this._generateShortCode();
+        console.log(`[DEBUG] 生成的短邀请码: ${shortCode}`);
         
         // 将主持人信息和房间设置存储起来
         const inviteData = {
@@ -70,18 +92,31 @@ class PeerManager {
             roomSettings: roomSettings,
             timestamp: new Date().getTime()
         };
+        console.log(`[DEBUG] 创建的邀请数据:`, inviteData);
         
-        // 将完整数据存储到localStorage
+        // 将完整数据存储到localStorage（本地备份）
         const shortCodeKey = `room_${shortCode}`;
         localStorage.setItem(shortCodeKey, encodeURIComponent(JSON.stringify(inviteData)));
+        console.log(`[DEBUG] 邀请数据已保存到本地存储: ${shortCodeKey}`);
         
-        // 设置过期时间（48小时后自动清理）
+        // 将邀请码数据编码为URL安全的字符串
+        const encodedData = btoa(encodeURIComponent(JSON.stringify(inviteData)));
+        console.log(`[DEBUG] 编码后的数据长度: ${encodedData.length}`);
+        
+        // 将邀请码和编码数据关联存储在sessionStorage中
+        // 这样其他用户可以通过URL参数获取这些数据
+        sessionStorage.setItem(`invite_data_${shortCode}`, encodedData);
+        console.log(`[DEBUG] 邀请数据已存储到sessionStorage`);
+        
+        // 设置过期时间（48小时后自动清理本地存储）
         setTimeout(() => {
             localStorage.removeItem(shortCodeKey);
+            console.log(`[DEBUG] 本地存储的邀请码数据已过期并清理: ${shortCodeKey}`);
         }, 48 * 60 * 60 * 1000);
         
         // 将短邀请码与完整信息关联
         this.currentInviteCode = shortCode;
+        console.log(`[DEBUG] 邀请码生成完成: ${shortCode}`);
         
         return shortCode;
     }
@@ -89,32 +124,74 @@ class PeerManager {
     /**
      * 解析邀请码（参与者用）
      * @param {string} inviteCode - 主持人分享的邀请码
-     * @returns {Object} 解析后的邀请数据
+     * @returns {Object|Promise} 解析后的邀请数据或Promise
      */
     parseInviteCode(inviteCode) {
         try {
-            const shortCodeKey = `room_${inviteCode.trim().toUpperCase()}`;
-            const storedData = localStorage.getItem(shortCodeKey);
+            console.log(`[DEBUG] parseInviteCode开始处理邀请码: ${inviteCode}`);
+            const formattedCode = inviteCode.trim().toUpperCase();
+            console.log(`[DEBUG] 格式化后的邀请码: ${formattedCode}`);
+            const shortCodeKey = `room_${formattedCode}`;
+            console.log(`[DEBUG] 本地存储键: ${shortCodeKey}`);
             
-            if (!storedData) {
-                // 尝试在 SessionStorage 中查找
-                if(sessionStorage.getItem(shortCodeKey)) {
-                    return JSON.parse(decodeURIComponent(sessionStorage.getItem(shortCodeKey)));
-                }
-                
-                // 如果找不到数据，可能是新生成的邀请码
-                // 将邀请码保存到Session中，等待主持人共享数据
-                sessionStorage.setItem('pending_invite_code', inviteCode.trim().toUpperCase());
-                
-                // 需要定期检查是否有新数据
-                this._startPendingInviteCheck();
-                
-                throw new Error('未找到与该邀请码关联的房间信息，请确保输入正确，或等待主持人分享房间信息');
+            // 首先尝试从本地存储获取数据
+            const storedData = localStorage.getItem(shortCodeKey);
+            console.log(`[DEBUG] 本地存储数据: ${storedData ? '找到' : '未找到'}`);
+            
+            if (storedData) {
+                console.log(`[DEBUG] 从本地存储返回数据`);
+                return JSON.parse(decodeURIComponent(storedData));
             }
             
-            return JSON.parse(decodeURIComponent(storedData));
+            // 如果本地没有数据，尝试从URL参数获取
+            console.log(`[DEBUG] 本地未找到邀请码数据，尝试从URL参数获取`);
+            const urlParams = new URLSearchParams(window.location.search);
+            const encodedData = urlParams.get('data');
+            
+            if (encodedData) {
+                console.log(`[DEBUG] 从URL参数获取到编码数据，长度: ${encodedData.length}`);
+                try {
+                    const decodedData = JSON.parse(decodeURIComponent(atob(encodedData)));
+                    console.log(`[DEBUG] 解码成功:`, decodedData);
+                    
+                    // 保存到本地存储
+                    localStorage.setItem(shortCodeKey, encodeURIComponent(JSON.stringify(decodedData)));
+                    console.log(`[DEBUG] 已保存到本地存储`);
+                    
+                    // 清除URL参数但不刷新页面
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    
+                    return decodedData;
+                } catch (e) {
+                    console.error(`[DEBUG] URL参数解码失败:`, e);
+                }
+            }
+            
+            // 如果没有从URL获取到数据，尝试从sessionStorage获取
+            console.log(`[DEBUG] 尝试从sessionStorage获取数据`);
+            const sessionData = sessionStorage.getItem(`invite_data_${formattedCode}`);
+            
+            if (sessionData) {
+                console.log(`[DEBUG] 从sessionStorage获取到数据，长度: ${sessionData.length}`);
+                try {
+                    const decodedData = JSON.parse(decodeURIComponent(atob(sessionData)));
+                    console.log(`[DEBUG] sessionStorage数据解码成功:`, decodedData);
+                    
+                    // 保存到本地存储
+                    localStorage.setItem(shortCodeKey, encodeURIComponent(JSON.stringify(decodedData)));
+                    console.log(`[DEBUG] 已保存到本地存储`);
+                    
+                    return decodedData;
+                } catch (e) {
+                    console.error(`[DEBUG] sessionStorage数据解码失败:`, e);
+                }
+            }
+            
+            // 都没有找到数据，抛出错误
+            console.error(`[DEBUG] 未找到邀请码数据`);
+            throw new Error('未找到与该邀请码关联的房间信息，请确保输入正确，或等待主持人分享房间信息');
         } catch (e) {
-            console.error('邀请码解析失败:', e);
+            console.error('[DEBUG] 邀请码解析失败:', e);
             throw e;
         }
     }
@@ -497,33 +574,51 @@ class PeerManager {
      * @returns {string} 可共享的URL
      */
     shareRoomInfo(code = null) {
+        console.log(`[DEBUG] shareRoomInfo开始，邀请码: ${code || this.currentInviteCode}`);
         const inviteCode = code || this.currentInviteCode;
-        if (!inviteCode) return null;
+        if (!inviteCode) {
+            console.log(`[DEBUG] 没有有效的邀请码`);
+            return null;
+        }
         
+        // 获取邀请码数据
         const shortCodeKey = `room_${inviteCode}`;
         const roomData = localStorage.getItem(shortCodeKey);
         
         if (roomData) {
-            // 创建一个包含房间数据的对象
-            const shareData = {
-                code: inviteCode,
-                data: roomData
-            };
+            console.log(`[DEBUG] 从本地存储获取到房间数据`);
             
-            // 将数据存储到一个通用位置
-            const shareKey = `shared_room_${inviteCode}`;
-            localStorage.setItem(shareKey, encodeURIComponent(JSON.stringify(shareData)));
-            
-            // 设置过期时间（1小时）
-            setTimeout(() => {
-                localStorage.removeItem(shareKey);
-            }, 60 * 60 * 1000);
-            
-            // 返回带有查询参数的URL
-            const currentUrl = window.location.href.split('?')[0];
-            return `${currentUrl}?room=${inviteCode}`;
+            // 获取sessionStorage中存储的编码数据
+            const encodedData = sessionStorage.getItem(`invite_data_${inviteCode}`);
+            if (encodedData) {
+                console.log(`[DEBUG] 从sessionStorage获取到编码数据，长度: ${encodedData.length}`);
+                
+                // 返回带有查询参数的URL
+                const currentUrl = window.location.href.split('?')[0];
+                const shareUrl = `${currentUrl}?room=${inviteCode}&data=${encodedData}`;
+                console.log(`[DEBUG] 生成的分享URL: ${shareUrl.substring(0, 50)}...`);
+                
+                return shareUrl;
+            } else {
+                // 如果没有找到编码数据，重新编码
+                console.log(`[DEBUG] 未找到编码数据，重新编码`);
+                const decodedData = JSON.parse(decodeURIComponent(roomData));
+                const newEncodedData = btoa(encodeURIComponent(JSON.stringify(decodedData)));
+                console.log(`[DEBUG] 重新编码的数据长度: ${newEncodedData.length}`);
+                
+                // 保存到sessionStorage
+                sessionStorage.setItem(`invite_data_${inviteCode}`, newEncodedData);
+                
+                // 返回带有查询参数的URL
+                const currentUrl = window.location.href.split('?')[0];
+                const shareUrl = `${currentUrl}?room=${inviteCode}&data=${newEncodedData}`;
+                console.log(`[DEBUG] 生成的分享URL: ${shareUrl.substring(0, 50)}...`);
+                
+                return shareUrl;
+            }
         }
         
+        console.log(`[DEBUG] 未找到房间数据`);
         return null;
     }
     
@@ -532,36 +627,45 @@ class PeerManager {
      * 如果有，自动加载房间信息
      */
     static checkUrlForInviteCode() {
+        console.log(`[DEBUG] 检查URL中的邀请码...`);
         const urlParams = new URLSearchParams(window.location.search);
         const roomCode = urlParams.get('room');
+        const encodedData = urlParams.get('data');
         
         if (roomCode) {
+            console.log(`[DEBUG] URL中找到邀请码: ${roomCode}`);
+            
             // 清除URL参数但不刷新页面
             window.history.replaceState({}, document.title, window.location.pathname);
             
-            // 尝试加载共享的房间数据
-            const shareKey = `shared_room_${roomCode}`;
-            const sharedData = localStorage.getItem(shareKey);
-            
-            if (sharedData) {
+            if (encodedData) {
+                console.log(`[DEBUG] URL中找到编码数据，长度: ${encodedData.length}`);
                 try {
-                    const parsed = JSON.parse(decodeURIComponent(sharedData));
-                    if (parsed.code && parsed.data) {
-                        const roomKey = `room_${parsed.code}`;
-                        localStorage.setItem(roomKey, parsed.data);
-                        
-                        // 表明房间数据已加载
-                        sessionStorage.setItem('loaded_room_code', roomCode);
-                        console.log(`已加载共享房间数据: ${roomCode}`);
-                        return roomCode;
-                    }
+                    // 解码数据
+                    const decodedData = JSON.parse(decodeURIComponent(atob(encodedData)));
+                    console.log(`[DEBUG] 解码成功:`, decodedData);
+                    
+                    // 保存到localStorage和sessionStorage
+                    const roomKey = `room_${roomCode}`;
+                    localStorage.setItem(roomKey, encodeURIComponent(JSON.stringify(decodedData)));
+                    sessionStorage.setItem(`invite_data_${roomCode}`, encodedData);
+                    
+                    // 表明房间数据已加载
+                    sessionStorage.setItem('loaded_room_code', roomCode);
+                    console.log(`[DEBUG] 已加载房间数据: ${roomCode}`);
+                    return roomCode;
                 } catch (e) {
-                    console.error('解析共享房间数据失败:', e);
+                    console.error(`[DEBUG] 解析URL编码数据失败:`, e);
                 }
             } else {
-                // 如果没有找到共享数据，也保存邀请码以便后续使用
-                sessionStorage.setItem('pending_invite_code', roomCode);
+                console.log(`[DEBUG] URL中没有找到编码数据`);
             }
+            
+            // 如果没有找到编码数据或解析失败，保存邀请码以便后续使用
+            sessionStorage.setItem('pending_invite_code', roomCode);
+            console.log(`[DEBUG] 已保存待处理的邀请码: ${roomCode}`);
+        } else {
+            console.log(`[DEBUG] URL中没有找到邀请码`);
         }
         
         return null;
