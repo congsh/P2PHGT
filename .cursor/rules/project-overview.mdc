@@ -1,0 +1,22 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# P2P海龟汤在线房间 - 项目概述
+
+这是一个基于WebRTC技术的点对点(P2P)海龟汤游戏应用，无需中心服务器。
+
+## 核心文档
+- 详细设计文档：[DESIGN.md](mdc:DESIGN.md)
+
+## 核心技术
+- WebRTC (使用simple-peer库封装)
+- 纯JavaScript (Vanilla JS)
+- HTML5 + CSS3
+
+## 项目结构
+项目采用简单的结构，主要包含：
+- HTML/CSS 用于界面展示
+- JavaScript 处理游戏逻辑和P2P通信
+

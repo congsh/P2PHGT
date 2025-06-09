@@ -1,0 +1,442 @@
+/* 全局样式重置 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Microsoft YaHei', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f5f5f5;
+}
+
+/* 容器样式 */
+#appContainer {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* 视图控制 */
+.view {
+    display: none;
+    padding: 20px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.view.active {
+    display: block;
+}
+
+/* 标题样式 */
+h1, h2, h3 {
+    margin-bottom: 20px;
+    color: #2c3e50;
+}
+
+h1 {
+    font-size: 2.5rem;
+    text-align: center;
+    margin-top: 20px;
+}
+
+h2 {
+    font-size: 1.8rem;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 10px;
+}
+
+h3 {
+    font-size: 1.2rem;
+    margin-top: 15px;
+    margin-bottom: 10px;
+}
+
+/* 按钮样式 */
+.btn {
+    padding: 10px 20px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    font-size: 16px;
+}
+
+.btn:hover {
+    background-color: #2980b9;
+}
+
+.btn-primary {
+    background-color: #3498db;
+}
+
+.btn-secondary {
+    background-color: #95a5a6;
+}
+
+.btn-success {
+    background-color: #2ecc71;
+}
+
+.btn-danger {
+    background-color: #e74c3c;
+}
+
+.btn-small {
+    padding: 5px 10px;
+    font-size: 14px;
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    justify-content: center;
+}
+
+/* 表单样式 */
+.form-group {
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+input[type="text"],
+textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.radio-group {
+    display: flex;
+    gap: 20px;
+    margin-top: 5px;
+}
+
+.radio-group input[type="radio"] {
+    margin-right: 5px;
+}
+
+/* 欢迎页面样式 */
+#welcomeView {
+    text-align: center;
+    padding: 50px 20px;
+}
+
+.welcome-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.welcome-buttons button {
+    padding: 15px;
+    font-size: 18px;
+}
+
+/* 连接页面样式 */
+.connection-info {
+    margin-bottom: 30px;
+}
+
+.code-container {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.code-container textarea {
+    width: 100%;
+    height: 100px;
+    font-family: monospace;
+    padding: 10px;
+    background-color: #f8f9fa;
+}
+
+.code-container button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
+
+.loading-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 30px;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    border-left-color: #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.participants-list {
+    margin-top: 20px;
+}
+
+.participants-list ul {
+    list-style: none;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 10px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.participants-list li {
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.participants-list li:last-child {
+    border-bottom: none;
+}
+
+/* 游戏界面布局 */
+.game-layout {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 100px);
+}
+
+.game-header {
+    border-bottom: 1px solid #eee;
+    padding-bottom: 15px;
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.soup-type-display {
+    padding: 8px 12px;
+    background-color: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #555;
+}
+
+.game-solution {
+    padding: 10px;
+    background-color: #ffe6e6;
+    border: 1px solid #ffcccc;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+.game-main {
+    display: flex;
+    gap: 20px;
+    flex: 1;
+    min-height: 0;
+}
+
+.chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-history {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 15px;
+    background: #fff;
+    margin-bottom: 15px;
+    min-height: 300px;
+}
+
+.chat-message {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.question-message .sender,
+.clue-message .sender {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.answer-message {
+    text-align: center;
+    font-weight: bold;
+    padding: 10px;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+}
+
+.clue-controls,
+.question-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.question-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.game-sidebar {
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* 回答按钮样式 */
+.answer-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.answer-btn {
+    flex: 1;
+    padding: 15px 5px;
+    font-size: 16px;
+    font-weight: bold;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.answer-btn.yes {
+    background-color: #2ecc71;
+}
+
+.answer-btn.no {
+    background-color: #e74c3c;
+}
+
+.answer-btn.uncertain {
+    background-color: #f39c12;
+}
+
+.answer-btn:hover {
+    opacity: 0.9;
+}
+
+/* 举手列表样式 */
+.raise-hand-list {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 20px;
+}
+
+.raise-hand-list ul {
+    list-style: none;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.raise-hand-list li {
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.raise-hand-list button {
+    padding: 5px 10px;
+}
+
+/* 个人笔记区域 */
+.personal-notes {
+    margin-bottom: 20px;
+}
+
+.personal-notes textarea {
+    height: 200px;
+}
+
+/* 参与者面板 */
+.participants-panel {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.participants-panel ul {
+    list-style: none;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.participants-panel li {
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+/* 交互按钮 */
+.interaction-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+/* 游戏结束样式 */
+.game-result {
+    margin: 30px 0;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+}
+
+.game-result h3 {
+    color: #7f8c8d;
+    margin-bottom: 5px;
+}
+
+.game-result p {
+    font-size: 18px;
+    margin-bottom: 20px;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .game-main {
+        flex-direction: column;
+    }
+
+    .game-sidebar {
+        width: 100%;
+    }
+} 

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P海龟汤在线房间</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="appContainer">
+        <!-- 欢迎页面 -->
+        <div id="welcomeView" class="view active">
+            <h1>P2P海龟汤在线房间</h1>
+            <div class="welcome-buttons">
+                <button id="createRoomBtn" class="btn btn-primary">创建房间（成为主持人）</button>
+                <button id="joinRoomBtn" class="btn btn-secondary">加入房间（成为参与者）</button>
+            </div>
+        </div>
+
+        <!-- 主持人创建房间 -->
+        <div id="hostCreationView" class="view">
+            <h2>创建海龟汤房间</h2>
+            <div class="form-group">
+                <label for="soupTitle">汤面（所有人可见的谜题）：</label>
+                <textarea id="soupTitle" rows="3" placeholder="请输入所有玩家可见的谜题内容..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="soupSolution">汤底（只有主持人可见的答案）：</label>
+                <textarea id="soupSolution" rows="3" placeholder="请输入只有你知道的谜底..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>汤底类型：</label>
+                <div class="radio-group">
+                    <input type="radio" id="redSoup" name="soupType" value="red" checked>
+                    <label for="redSoup">红汤</label>
+                    <input type="radio" id="otherSoup" name="soupType" value="other">
+                    <label for="otherSoup">非红汤</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>提问模式：</label>
+                <div class="radio-group">
+                    <input type="radio" id="freeMode" name="questionMode" value="free" checked>
+                    <label for="freeMode">自由模式</label>
+                    <input type="radio" id="raiseHandMode" name="questionMode" value="raiseHand">
+                    <label for="raiseHandMode">举手模式</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>互动功能：</label>
+                <div class="radio-group">
+                    <input type="radio" id="allowInteraction" name="interactionMode" value="allow" checked>
+                    <label for="allowInteraction">允许互动</label>
+                    <input type="radio" id="disallowInteraction" name="interactionMode" value="disallow">
+                    <label for="disallowInteraction">禁止互动</label>
+                </div>
+            </div>
+            <div class="button-group">
+                <button id="createGameBtn" class="btn btn-primary">创建游戏</button>
+                <button id="backToWelcomeBtn" class="btn btn-secondary">返回</button>
+            </div>
+        </div>
+
+        <!-- 参与者加入房间 -->
+        <div id="participantJoinView" class="view">
+            <h2>加入海龟汤房间</h2>
+            <div class="form-group">
+                <label for="participantName">你的昵称：</label>
+                <input type="text" id="participantName" placeholder="请输入你的昵称">
+            </div>
+            <div class="form-group">
+                <label for="inviteCode">邀请码：</label>
+                <textarea id="inviteCode" rows="5" placeholder="请粘贴主持人分享给你的邀请码..."></textarea>
+            </div>
+            <div class="button-group">
+                <button id="joinGameBtn" class="btn btn-primary">加入游戏</button>
+                <button id="backFromJoinBtn" class="btn btn-secondary">返回</button>
+            </div>
+        </div>
+
+        <!-- 主持人连接管理界面 -->
+        <div id="hostConnectionView" class="view">
+            <h2>等待参与者加入</h2>
+            <div class="connection-info">
+                <h3>你的邀请码（分享给参与者）</h3>
+                <div class="code-container">
+                    <textarea id="hostInviteCode" readonly placeholder="生成的邀请码将显示在这里" aria-label="邀请码"></textarea>
+                    <button id="copyInviteCodeBtn" class="btn btn-small">复制</button>
+                </div>
+            </div>
+            <div class="connection-input">
+                <h3>输入参与者的响应码</h3>
+                <div class="code-container">
+                    <textarea id="participantResponseCode" placeholder="粘贴参与者发给你的响应码..."></textarea>
+                    <button id="connectParticipantBtn" class="btn btn-primary">连接</button>
+                </div>
+            </div>
+            <div class="participants-list">
+                <h3>已连接的参与者</h3>
+                <ul id="connectedParticipants"></ul>
+            </div>
+            <div class="button-group">
+                <button id="startGameBtn" class="btn btn-success">开始游戏</button>
+            </div>
+        </div>
+
+        <!-- 参与者等待连接界面 -->
+        <div id="participantWaitingView" class="view">
+            <h2>等待与主持人建立连接</h2>
+            <div class="connection-info">
+                <h3>你的响应码（发送给主持人）</h3>
+                <div class="code-container">
+                    <textarea id="responseCode" readonly placeholder="生成的响应码将显示在这里" aria-label="响应码"></textarea>
+                    <button id="copyResponseCodeBtn" class="btn btn-small">复制</button>
+                </div>
+            </div>
+            <p class="info-text">请将响应码发给主持人，等待主持人连接</p>
+            <div class="loading-indicator">
+                <div class="spinner"></div>
+                <p>正在等待连接...</p>
+            </div>
+        </div>
+
+        <!-- 游戏主界面 - 主持人视图 -->
+        <div id="hostGameView" class="view">
+            <div class="game-layout">
+                <div class="game-header">
+                    <h2 id="hostGameTitle"></h2>
+                    <div class="game-solution" id="hostSolutionDisplay"></div>
+                </div>
+                <div class="game-main">
+                    <div class="chat-area">
+                        <div id="chatHistory" class="chat-history"></div>
+                        <div class="clue-controls">
+                            <textarea id="clueInput" placeholder="输入情报内容..."></textarea>
+                            <button id="sendClueBtn" class="btn btn-primary">发布情报</button>
+                        </div>
+                    </div>
+                    <div class="game-sidebar">
+                        <div class="answer-buttons">
+                            <button id="answerYesBtn" class="answer-btn yes">是</button>
+                            <button id="answerNoBtn" class="answer-btn no">否</button>
+                            <button id="answerUncertainBtn" class="answer-btn uncertain">不确定</button>
+                        </div>
+                        <div id="raiseHandList" class="raise-hand-list">
+                            <h3>举手列表</h3>
+                            <ul id="handsRaisedList"></ul>
+                        </div>
+                        <div class="participants-panel">
+                            <h3>参与者 (<span id="participantsCount">0</span>)</h3>
+                            <ul id="gameParticipantsList"></ul>
+                        </div>
+                        <button id="endGameBtn" class="btn btn-danger">结束游戏</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 游戏主界面 - 参与者视图 -->
+        <div id="participantGameView" class="view">
+            <div class="game-layout">
+                <div class="game-header">
+                    <h2 id="participantGameTitle"></h2>
+                    <div class="soup-type-display" id="participantSoupType"></div>
+                </div>
+                <div class="game-main">
+                    <div class="chat-area">
+                        <div id="participantChatHistory" class="chat-history"></div>
+                        <div class="question-controls">
+                            <textarea id="questionInput" placeholder="输入你的问题..."></textarea>
+                            <div class="question-buttons">
+                                <button id="sendQuestionBtn" class="btn btn-primary">发送问题</button>
+                                <button id="raiseHandBtn" class="btn btn-secondary">举手</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="game-sidebar">
+                        <div class="personal-notes">
+                            <h3>个人笔记</h3>
+                            <textarea id="personalNotes" placeholder="在这里记录你的线索和想法..."></textarea>
+                        </div>
+                        <div class="interaction-buttons">
+                            <button id="throwFlowerBtn" class="btn btn-small">送花</button>
+                            <button id="throwTrashBtn" class="btn btn-small">扔垃圾</button>
+                        </div>
+                        <div class="participants-panel">
+                            <h3>参与者 (<span id="participantViewCount">0</span>)</h3>
+                            <ul id="participantViewList"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 游戏结束界面 -->
+        <div id="gameEndView" class="view">
+            <h2>游戏结束</h2>
+            <div class="game-result">
+                <h3>汤面</h3>
+                <p id="endGameTitle"></p>
+                <h3>汤底</h3>
+                <p id="endGameSolution"></p>
+            </div>
+            <button id="returnToWelcomeBtn" class="btn btn-primary">返回主页</button>
+        </div>
+    </div>
+
+    <!-- 加载必要的库 -->
+    <script src="https://cdn.jsdelivr.net/npm/simple-peer@9.11.0/simplepeer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.10/dist/clipboard.min.js"></script>
+    
+    <!-- 加载自己的脚本 -->
+    <script src="js/peer.js"></script>
+    <script src="js/host.js"></script>
+    <script src="js/participant.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html> 

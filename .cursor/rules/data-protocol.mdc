@@ -1,0 +1,39 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 数据协议规范
+
+项目中所有P2P通信均使用JSON格式的字符串传输，遵循以下结构：
+
+```json
+{
+  "type": "消息类型",
+  "payload": {
+    // 具体消息内容
+  }
+}
+```
+
+## 消息类型定义
+
+### 参与者 -> 主持人
+- `C2H_QUESTION`: 参与者提问
+  - payload: `{ content: "提问内容" }`
+- `C2H_INTERACTION`: 参与者互动（举手、送花等）
+  - payload: `{ type: "raise_hand" | "throw_flower", ... }`
+
+### 主持人 -> 所有参与者
+- `H2A_QUESTION_RELAY`: 转发收到的提问
+  - payload: `{ from: "提问者昵称", content: "提问内容" }`
+- `H2A_ANSWER`: 回答问题
+  - payload: `{ answer: "yes" | "no" | "uncertain" }`
+- `H2A_CLUE`: 发布情报
+  - payload: `{ content: "情报内容" }`
+- `H2A_GAME_STATE`: 同步游戏状态
+  - payload: `{ rules: {...}, participants: [...], history: [...] }`
+- `H2A_INTERACTION_RELAY`: 转发互动事件
+- `H2A_GAME_END`: 游戏结束
+  - payload: `{ solution: "汤底" }`
+
