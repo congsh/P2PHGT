@@ -24,41 +24,198 @@ const participantManager = {
         );
         
         try {
-            // 解析邀请码
-            console.log("[DEBUG] 调用parseInviteCode解析邀请码...");
-            const inviteDataPromise = appState.peerManager.parseInviteCode(inviteCode);
-            console.log("[DEBUG] parseInviteCode返回结果类型:", typeof inviteDataPromise);
-            console.log("[DEBUG] 是否为Promise:", inviteDataPromise instanceof Promise);
-            
-            // 处理可能的Promise返回
-            if (inviteDataPromise instanceof Promise) {
-                console.log("[DEBUG] 邀请码解析返回Promise，等待在线数据...");
-                
-                // 显示加载提示
-                viewManager.switchTo('participantWaitingView');
-                const infoText = document.querySelector('.info-text');
-                if (infoText) {
-                    infoText.innerHTML = '<p>正在从在线服务获取房间信息，请稍候...</p>';
-                }
-                
-                // 处理Promise
-                inviteDataPromise
-                    .then(inviteData => {
-                        console.log("[DEBUG] Promise成功解析，获取到邀请数据:", inviteData);
-                        this._processInviteData(inviteData, nickname, inviteCode);
-                    })
-                    .catch(error => {
-                        console.error("[DEBUG] Promise解析失败:", error);
-                        this._showDiagnosticInfo(inviteCode, error);
-                    });
-            } else {
-                // 直接处理本地数据
-                console.log("[DEBUG] 直接处理本地数据:", inviteDataPromise);
-                this._processInviteData(inviteDataPromise, nickname, inviteCode);
+            // 验证邀请码格式
+            if (!inviteCode || inviteCode.length < 5) {
+                throw new Error('邀请码格式不正确');
             }
+            
+            // 显示加载提示
+            viewManager.switchTo('participantWaitingView');
+            const infoText = document.querySelector('.info-text');
+            if (infoText) {
+                infoText.innerHTML = '<p>正在准备连接请求，请稍候...</p>';
+            }
+            
+            // 生成连接请求码
+            appState.peerManager.generateConnectionRequest(nickname, inviteCode)
+                .then(connectionRequestCode => {
+                    console.log("[DEBUG] 连接请求码生成成功，长度:", connectionRequestCode.length);
+                    
+                    // 保存连接请求码到隐藏字段（用于手动连接备用）
+                    document.getElementById('responseCode').value = connectionRequestCode;
+                    
+                    // 显示连接请求码和说明
+                    this._showConnectionRequestCode(connectionRequestCode);
+                    
+                    // 预先加载游戏信息（从本地存储）
+                    this._preloadGameInfo(inviteCode);
+                })
+                .catch(error => {
+                    console.error("[DEBUG] 生成连接请求码失败:", error);
+                    this._showDiagnosticInfo(inviteCode, error);
+                });
         } catch (error) {
             console.error("[参与者] 加入游戏失败:", error);
             this._showDiagnosticInfo(inviteCode, error);
+        }
+    },
+    
+    /**
+     * 显示连接请求码
+     * @param {string} connectionRequestCode - 连接请求码
+     * @private
+     */
+    _showConnectionRequestCode: function(connectionRequestCode) {
+        // 切换到等待连接视图
+        viewManager.switchTo('participantWaitingView');
+        
+        // 显示连接请求码
+        const connectionInfo = document.querySelector('.connection-info');
+        if (connectionInfo) {
+            connectionInfo.style.display = 'block';
+        }
+        
+        // 更新等待连接提示
+        const infoText = document.querySelector('.info-text');
+        if (infoText) {
+            infoText.innerHTML = `
+                <p>请将以下连接请求码提供给主持人：</p>
+                <ol>
+                    <li>复制连接请求码</li>
+                    <li>发送给主持人</li>
+                    <li>等待主持人接受连接</li>
+                </ol>
+                <p>主持人接受连接后，你将收到连接响应码</p>
+                <div class="connection-response-input" style="margin-top: 20px;">
+                    <h4>输入主持人提供的连接响应码：</h4>
+                    <textarea id="connectionResponseInput" placeholder="粘贴主持人提供的连接响应码..."></textarea>
+                    <button id="processResponseBtn" class="btn btn-primary">处理响应</button>
+                </div>
+            `;
+            
+            // 绑定处理响应按钮事件
+            setTimeout(() => {
+                const processResponseBtn = document.getElementById('processResponseBtn');
+                if (processResponseBtn) {
+                    processResponseBtn.addEventListener('click', () => {
+                        const responseCode = document.getElementById('connectionResponseInput').value.trim();
+                        if (!responseCode) {
+                            alert('请输入连接响应码');
+                            return;
+                        }
+                        
+                        this._processConnectionResponse(responseCode);
+                    });
+                }
+            }, 100);
+        }
+    },
+    
+    /**
+     * 处理连接响应
+     * @param {string} connectionResponseCode - 连接响应码
+     * @private
+     */
+    _processConnectionResponse: function(connectionResponseCode) {
+        console.log("[DEBUG] 开始处理连接响应码");
+        
+        // 更新等待连接提示
+        const infoText = document.querySelector('.info-text');
+        if (infoText) {
+            infoText.innerHTML = '<p>正在处理连接响应，请稍候...</p>';
+        }
+        
+        // 处理连接响应
+        appState.peerManager.processConnectionResponse(connectionResponseCode)
+            .then(result => {
+                console.log("[DEBUG] 连接响应处理成功:", result);
+                
+                // 显示应答码
+                const { hostId, answerCode } = result;
+                
+                // 更新等待连接提示
+                if (infoText) {
+                    infoText.innerHTML = `
+                        <p>请将以下应答码提供给主持人以完成连接：</p>
+                        <div class="code-container" style="margin: 15px 0;">
+                            <textarea id="answerCodeDisplay" readonly style="height: 100px;">${answerCode}</textarea>
+                            <button id="copyAnswerCodeBtn" class="btn btn-small">复制</button>
+                        </div>
+                        <p>主持人处理应答码后，连接将自动建立</p>
+                        <div class="loading-indicator">
+                            <div class="spinner"></div>
+                            <p>等待连接建立...</p>
+                        </div>
+                    `;
+                    
+                    // 绑定复制按钮事件
+                    setTimeout(() => {
+                        const copyBtn = document.getElementById('copyAnswerCodeBtn');
+                        if (copyBtn) {
+                            copyBtn.addEventListener('click', () => {
+                                const textarea = document.getElementById('answerCodeDisplay');
+                                textarea.select();
+                                document.execCommand('copy');
+                                
+                                copyBtn.textContent = '已复制!';
+                                setTimeout(() => {
+                                    copyBtn.textContent = '复制';
+                                }, 1500);
+                            });
+                        }
+                    }, 100);
+                }
+            })
+            .catch(error => {
+                console.error("[DEBUG] 处理连接响应失败:", error);
+                
+                // 显示错误信息
+                if (infoText) {
+                    infoText.innerHTML = `
+                        <p style="color: #e74c3c;">处理连接响应失败: ${error.message}</p>
+                        <button id="backToRequestBtn" class="btn btn-secondary">返回</button>
+                    `;
+                    
+                    // 绑定返回按钮事件
+                    setTimeout(() => {
+                        const backBtn = document.getElementById('backToRequestBtn');
+                        if (backBtn) {
+                            backBtn.addEventListener('click', () => {
+                                // 重新显示连接请求码
+                                this._showConnectionRequestCode(document.getElementById('responseCode').value);
+                            });
+                        }
+                    }, 100);
+                }
+            });
+    },
+    
+    /**
+     * 预加载游戏信息
+     * @param {string} inviteCode - 邀请码
+     * @private
+     */
+    _preloadGameInfo: function(inviteCode) {
+        try {
+            const formattedCode = inviteCode.trim().toUpperCase();
+            const shortCodeKey = `room_${formattedCode}`;
+            const storedData = localStorage.getItem(shortCodeKey);
+            
+            if (storedData) {
+                const inviteData = JSON.parse(decodeURIComponent(storedData));
+                if (inviteData && inviteData.roomSettings) {
+                    // 保存游戏信息
+                    appState.gameInfo.title = inviteData.roomSettings.title || '';
+                    appState.gameInfo.rules = inviteData.roomSettings.rules || {
+                        soupType: 'red',
+                        questionMode: 'free',
+                        interactionMode: 'allow'
+                    };
+                    console.log("[DEBUG] 已预加载游戏信息");
+                }
+            }
+        } catch (error) {
+            console.error("[DEBUG] 预加载游戏信息失败:", error);
         }
     },
     
@@ -153,130 +310,6 @@ const participantManager = {
             document.getElementById('participantName').value = appState.nickname;
             document.getElementById('inviteCode').value = inviteCode;
         });
-    },
-    
-    /**
-     * 处理邀请数据（内部方法）
-     * @private
-     */
-    _processInviteData: function(inviteData, nickname, inviteCode) {
-        console.log("[DEBUG] _processInviteData开始处理邀请数据:", inviteData);
-        
-        if (!inviteData || !inviteData.hostId || !inviteData.roomSettings) {
-            console.error("[DEBUG] 邀请码格式错误:", inviteData);
-            throw new Error('邀请码格式错误');
-        }
-        
-        console.log("[DEBUG] 解析成功，主持人ID:", inviteData.hostId);
-        console.log("[DEBUG] 房间设置:", inviteData.roomSettings);
-        
-        // 保存游戏信息
-        appState.gameInfo.title = inviteData.roomSettings.title;
-        appState.gameInfo.rules = inviteData.roomSettings.rules;
-        console.log("[DEBUG] 已保存游戏信息到appState");
-        
-        // 判断是否是加入进行中的游戏
-        const isJoiningActiveGame = inviteData.roomSettings.gameInProgress === true;
-        if (isJoiningActiveGame) {
-            console.log("[DEBUG] 正在加入进行中的游戏");
-            // 可以预先加载一些游戏状态
-            if (inviteData.roomSettings.gameState) {
-                console.log("[DEBUG] 预加载游戏状态...");
-                // 这些状态会在连接成功后被更完整的状态更新覆盖
-            }
-        }
-        
-        console.log("[DEBUG] 开始生成响应码...");
-        // 生成响应码
-        appState.peerManager.generateResponseCode(inviteData.hostId, nickname)
-            .then(responseCode => {
-                console.log("[DEBUG] 响应码生成成功，长度:", responseCode.length);
-                
-                // 保存响应码到隐藏字段（用于手动连接备用）
-                document.getElementById('responseCode').value = responseCode;
-                console.log("[DEBUG] 响应码已保存到DOM元素");
-                
-                // 自动将响应码保存到主持人可以检测的位置
-                const waitingResponseKey = 'webrtc_waiting_responses';
-                let waitingResponses = [];
-                try {
-                    const storedResponses = localStorage.getItem(waitingResponseKey);
-                    if (storedResponses) {
-                        waitingResponses = JSON.parse(storedResponses);
-                        console.log("[DEBUG] 读取到现有等待响应:", waitingResponses.length, "条");
-                    }
-                } catch (e) {
-                    console.error("[DEBUG] 读取等待响应失败:", e);
-                }
-                
-                // 添加新响应并存储
-                waitingResponses.push({
-                    timestamp: new Date().getTime(),
-                    hostId: inviteData.hostId,
-                    responseCode: responseCode,
-                    nickname: nickname
-                });
-                console.log("[DEBUG] 已添加新响应，现共有", waitingResponses.length, "条等待响应");
-                
-                try {
-                    localStorage.setItem(waitingResponseKey, encodeURIComponent(JSON.stringify(waitingResponses)));
-                    console.log("[DEBUG] 响应码已存储到共享区域，等待主持人检测");
-                } catch (e) {
-                    console.error("[DEBUG] 存储响应码失败:", e);
-                    // 出错时显示手动连接区域
-                    document.querySelector('.connection-info').style.display = 'block';
-                    const infoText = document.querySelector('.info-text');
-                    if (infoText) {
-                        infoText.innerHTML = `
-                            <div style="margin-bottom: 10px; color: #e74c3c;">
-                                自动连接失败，请手动将上方响应码复制给主持人
-                            </div>
-                        `;
-                    }
-                }
-                
-                // 切换到等待连接视图
-                viewManager.switchTo('participantWaitingView');
-                console.log("[DEBUG] 已切换到等待连接视图");
-                
-                // 更新等待连接提示
-                const infoText = document.querySelector('.info-text');
-                if (infoText) {
-                    infoText.innerHTML = '<p>已自动处理连接请求，正在等待主持人接受连接...</p>';
-                }
-                
-                // 启动自动检查应答信号的轮询
-                console.log("[DEBUG] 启动信号检查轮询");
-                const signalChannel = `webrtc_signal_${appState.peerManager.myId}`;
-                console.log("[DEBUG] 信号通道:", signalChannel);
-                const signalCheckInterval = setInterval(() => {
-                    try {
-                        const storedSignal = localStorage.getItem(signalChannel);
-                        if (storedSignal) {
-                            console.log(`[DEBUG] 发现存储的应答信号，处理中...`);
-                            const result = appState.peerManager.processAnswerCode(storedSignal);
-                            console.log("[DEBUG] 处理应答信号结果:", result);
-                            if (result) {
-                                console.log("[DEBUG] 应答信号处理成功");
-                                localStorage.removeItem(signalChannel);
-                                clearInterval(signalCheckInterval);
-                                
-                                // 更新UI显示
-                                const infoText = document.querySelector('.info-text');
-                                if (infoText) {
-                                    infoText.innerHTML = '<p>连接建立中，请稍候...</p>';
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        console.error("[DEBUG] 信号检查失败:", e);
-                    }
-                }, 1000); // 每秒检查一次
-            })
-            .catch(error => {
-                console.error("[DEBUG] 生成响应码失败:", error);
-                alert('生成响应码失败: ' + error.message);
-            });
     },
     
     /**

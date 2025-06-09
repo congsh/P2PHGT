@@ -73,65 +73,131 @@ const hostManager = {
     },
     
     /**
-     * 处理参与者响应码，建立连接
+     * 处理参与者连接请求
      */
     connectParticipant: function() {
-        console.log("开始处理参与者响应码");
-        const responseCode = document.getElementById('participantResponseCode').value.trim();
+        console.log("[主持人] 开始处理参与者连接请求");
+        const connectionRequestCode = document.getElementById('participantResponseCode').value.trim();
         
-        if (!responseCode) {
-            alert('请输入参与者的响应码');
+        if (!connectionRequestCode) {
+            alert('请输入参与者的连接请求码');
             return;
         }
         
-        console.log("正在处理响应码...");
-        // 处理响应码
-        appState.peerManager.processResponseCode(responseCode)
+        // 显示处理状态
+        const statusText = document.querySelector('.connection-input .status-text');
+        if (statusText) {
+            statusText.textContent = "正在处理连接请求...";
+        }
+        
+        // 处理连接请求
+        appState.peerManager.processConnectionRequest(connectionRequestCode)
             .then(result => {
-                console.log("响应码处理成功，得到结果:", result);
-                // 清空响应码输入框，准备接收下一位参与者
+                console.log("[主持人] 连接请求处理成功:", result);
+                const { participantId, nickname, connectionResponseCode } = result;
+                
+                // 清空请求码输入框
                 document.getElementById('participantResponseCode').value = '';
                 
-                // 添加参与者到列表
-                const participantId = result.participantId;
-                const nickname = result.nickname;
-                const answerCode = result.answerCode;
-                
-                console.log(`生成了应答码，需要回传给参与者 ${nickname}(${participantId})`);
-                console.log("应答码:", answerCode);
-                
-                // 更新UI显示
-                this.addParticipantToList(participantId, nickname);
-                
-                // 显示连接成功的消息
-                alert(`参与者 ${nickname} 已成功连接，等待连接建立`);
-                
-                // 主动向参与者发送连接确认消息
-                console.log("尝试主动发送连接确认消息...");
-                setTimeout(() => {
-                    try {
-                        if (appState.peerManager.peers[participantId] && 
-                            appState.peerManager.peers[participantId].connected) {
-                            console.log("连接已建立，发送确认消息");
-                            
-                            appState.peerManager.sendToParticipant(participantId, {
-                                type: 'H2A_INTERACTION_RELAY',
-                                payload: {
-                                    type: 'connection_confirmed',
-                                    message: "主持人已确认连接"
-                                }
-                            });
-                        } else {
-                            console.log("连接尚未建立，不能发送消息");
-                        }
-                    } catch (e) {
-                        console.error("发送确认消息失败", e);
+                // 显示连接响应码
+                const responseContainer = document.querySelector('.connection-response');
+                if (responseContainer) {
+                    responseContainer.style.display = 'block';
+                    const responseCodeElem = document.getElementById('connectionResponseCode');
+                    if (responseCodeElem) {
+                        responseCodeElem.value = connectionResponseCode;
+                        
+                        // 自动选中以便复制
+                        responseCodeElem.select();
                     }
-                }, 2000);
+                    
+                    // 更新状态文本
+                    if (statusText) {
+                        statusText.textContent = `请将连接响应码发送给参与者: ${nickname}`;
+                    }
+                    
+                    // 显示应答码输入区域
+                    const answerContainer = document.querySelector('.connection-answer');
+                    if (answerContainer) {
+                        answerContainer.style.display = 'block';
+                        answerContainer.dataset.participantId = participantId;
+                        answerContainer.dataset.nickname = nickname;
+                    }
+                }
             })
             .catch(error => {
-                console.error("处理响应码失败:", error);
-                alert('处理响应码失败: ' + error);
+                console.error("[主持人] 处理连接请求失败:", error);
+                alert('处理连接请求失败: ' + error.message);
+                
+                // 更新状态文本
+                if (statusText) {
+                    statusText.textContent = "处理失败，请重试";
+                }
+            });
+    },
+    
+    /**
+     * 完成连接
+     */
+    finalizeConnection: function() {
+        console.log("[主持人] 开始完成连接");
+        const answerCode = document.getElementById('answerCodeInput').value.trim();
+        
+        if (!answerCode) {
+            alert('请输入参与者的应答码');
+            return;
+        }
+        
+        // 显示处理状态
+        const statusText = document.querySelector('.connection-answer .status-text');
+        if (statusText) {
+            statusText.textContent = "正在完成连接...";
+        }
+        
+        // 完成连接
+        appState.peerManager.finalizeConnection(answerCode)
+            .then(result => {
+                console.log("[主持人] 连接完成:", result);
+                
+                // 清空应答码输入框
+                document.getElementById('answerCodeInput').value = '';
+                
+                // 隐藏连接响应和应答区域
+                const responseContainer = document.querySelector('.connection-response');
+                if (responseContainer) {
+                    responseContainer.style.display = 'none';
+                }
+                
+                const answerContainer = document.querySelector('.connection-answer');
+                if (answerContainer) {
+                    const participantId = answerContainer.dataset.participantId;
+                    const nickname = answerContainer.dataset.nickname;
+                    
+                    // 添加参与者到列表
+                    this.addParticipantToList(participantId, nickname);
+                    
+                    // 隐藏应答区域
+                    answerContainer.style.display = 'none';
+                    
+                    // 更新状态文本
+                    if (statusText) {
+                        statusText.textContent = `参与者 ${nickname} 已成功连接`;
+                        
+                        // 3秒后恢复默认状态
+                        setTimeout(() => {
+                            statusText.textContent = "";
+                        }, 3000);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error("[主持人] 完成连接失败:", error);
+                alert('完成连接失败: ' + error.message);
+                
+                // 更新状态文本
+                if (statusText) {
+                    statusText.textContent = "连接失败，请重试";
+                }
             });
     },
     

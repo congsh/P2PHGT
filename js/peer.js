@@ -38,10 +38,22 @@ class PeerManager {
                 urls: 'turn:openrelay.metered.ca:443',
                 username: 'openrelayproject',
                 credential: 'openrelayproject'
+            },
+            // 添加更多TURN服务器以提高连接成功率
+            {
+                urls: 'turn:relay.metered.ca:80',
+                username: 'e7d69958ceb00a4f3e0d325f',
+                credential: 'pCZhR+iJ9TnkGW6R'
+            },
+            {
+                urls: 'turn:relay.metered.ca:443',
+                username: 'e7d69958ceb00a4f3e0d325f',
+                credential: 'pCZhR+iJ9TnkGW6R'
             }
         ];
         this.myId = this._generateId(); // 生成唯一ID
         this.currentInviteCode = null; // 当前邀请码
+        this.pendingConnections = {}; // 等待连接的请求
         
         // 清理过期的房间信息
         this._cleanupExpiredRooms();
@@ -238,167 +250,238 @@ class PeerManager {
     }
 
     /**
-     * 生成响应码（参与者用）
-     * @param {string} hostId - 主持人ID
+     * 生成连接请求码（参与者用）
      * @param {string} nickname - 参与者昵称
-     * @returns {string} 响应码
+     * @param {string} inviteCode - 邀请码
+     * @returns {Promise<string>} 连接请求码
      */
-    generateResponseCode(hostId, nickname) {
-        // 创建参与者到主持人的offer信令
-        return new Promise((resolve) => {
-            const peer = new SimplePeer({
-                initiator: true,
-                trickle: false,
-                config: { iceServers: this.iceServers }
-            });
-
-            peer.on('signal', data => {
-                // 当信令可用时，生成响应码
-                const responseData = {
+    generateConnectionRequest(nickname, inviteCode) {
+        console.log(`[DEBUG] 开始生成连接请求码，昵称: ${nickname}, 邀请码: ${inviteCode}`);
+        
+        return new Promise((resolve, reject) => {
+            try {
+                // 创建连接请求数据
+                const requestData = {
                     participantId: this.myId,
                     nickname: nickname,
-                    signalData: data
+                    inviteCode: inviteCode,
+                    timestamp: new Date().getTime()
                 };
-                // 保存连接对象，以便后续处理
+                
+                // 编码为连接请求码
+                const connectionRequestCode = btoa(encodeURIComponent(JSON.stringify(requestData)));
+                console.log(`[DEBUG] 连接请求码生成成功，长度: ${connectionRequestCode.length}`);
+                
+                resolve(connectionRequestCode);
+            } catch (error) {
+                console.error(`[DEBUG] 生成连接请求码失败:`, error);
+                reject(error);
+            }
+        });
+    }
+    
+    /**
+     * 处理连接请求（主持人用）
+     * @param {string} connectionRequestCode - 连接请求码
+     * @returns {Promise<Object>} 处理结果
+     */
+    processConnectionRequest(connectionRequestCode) {
+        console.log(`[DEBUG] 开始处理连接请求码`);
+        
+        return new Promise((resolve, reject) => {
+            try {
+                // 解码连接请求数据
+                const requestData = JSON.parse(decodeURIComponent(atob(connectionRequestCode)));
+                const { participantId, nickname, inviteCode } = requestData;
+                
+                console.log(`[DEBUG] 解析连接请求成功，参与者ID: ${participantId}, 昵称: ${nickname}, 邀请码: ${inviteCode}`);
+                
+                // 验证邀请码
+                const shortCodeKey = `room_${inviteCode.trim().toUpperCase()}`;
+                const storedData = localStorage.getItem(shortCodeKey);
+                
+                if (!storedData) {
+                    console.error(`[DEBUG] 无效的邀请码: ${inviteCode}`);
+                    reject(new Error('无效的邀请码'));
+                    return;
+                }
+                
+                // 创建对等连接
+                console.log(`[DEBUG] 创建对等连接对象...`);
+                const peer = new SimplePeer({
+                    initiator: true,
+                    trickle: false,
+                    config: { iceServers: this.iceServers },
+                    debug: true
+                });
+                
+                // 保存连接对象
+                this.peers[participantId] = {
+                    peer: peer,
+                    nickname: nickname,
+                    connected: false
+                };
+                
+                // 设置事件处理
+                this._setupPeerEvents(peer, participantId, nickname);
+                
+                // 当信号可用时，生成连接码
+                peer.on('signal', signal => {
+                    console.log(`[DEBUG] 生成连接信号，类型: ${signal.type}`);
+                    
+                    // 创建连接响应数据
+                    const responseData = {
+                        hostId: this.myId,
+                        participantId: participantId,
+                        signal: signal
+                    };
+                    
+                    // 编码为连接响应码
+                    const connectionResponseCode = btoa(encodeURIComponent(JSON.stringify(responseData)));
+                    console.log(`[DEBUG] 连接响应码生成成功，长度: ${connectionResponseCode.length}`);
+                    
+                    resolve({
+                        participantId,
+                        nickname,
+                        connectionResponseCode
+                    });
+                });
+                
+                // 处理错误
+                peer.on('error', err => {
+                    console.error(`[DEBUG] 创建连接时出错:`, err);
+                    reject(err);
+                });
+                
+            } catch (error) {
+                console.error(`[DEBUG] 处理连接请求失败:`, error);
+                reject(error);
+            }
+        });
+    }
+    
+    /**
+     * 处理连接响应（参与者用）
+     * @param {string} connectionResponseCode - 连接响应码
+     * @returns {Promise<boolean>} 处理结果
+     */
+    processConnectionResponse(connectionResponseCode) {
+        console.log(`[DEBUG] 开始处理连接响应码`);
+        
+        return new Promise((resolve, reject) => {
+            try {
+                // 解码连接响应数据
+                const responseData = JSON.parse(decodeURIComponent(atob(connectionResponseCode)));
+                const { hostId, participantId, signal } = responseData;
+                
+                console.log(`[DEBUG] 解析连接响应成功，主持人ID: ${hostId}, 参与者ID: ${participantId}`);
+                
+                // 验证参与者ID
+                if (participantId !== this.myId) {
+                    console.error(`[DEBUG] 参与者ID不匹配: ${participantId} != ${this.myId}`);
+                    reject(new Error('无效的连接响应'));
+                    return;
+                }
+                
+                // 创建对等连接
+                console.log(`[DEBUG] 创建对等连接对象...`);
+                const peer = new SimplePeer({
+                    initiator: false,
+                    trickle: false,
+                    config: { iceServers: this.iceServers },
+                    debug: true
+                });
+                
+                // 保存连接对象
                 this.peers[hostId] = {
                     peer: peer,
                     nickname: "主持人",
                     connected: false
                 };
-
-                // 设置接收消息的处理
+                
+                // 设置事件处理
                 this._setupPeerEvents(peer, hostId, "主持人");
-
-                // 返回编码后的响应数据（支持Unicode）
-                resolve(btoa(encodeURIComponent(JSON.stringify(responseData))));
-            });
-        });
-    }
-
-    /**
-     * 处理参与者的响应码（主持人用）
-     * @param {string} responseCode - 参与者的响应码
-     * @returns {Promise<Object>} 连接结果
-     */
-    processResponseCode(responseCode) {
-        try {
-            console.log("[主持人] 开始解析响应码...");
-            const responseData = JSON.parse(decodeURIComponent(atob(responseCode)));
-            const participantId = responseData.participantId;
-            const nickname = responseData.nickname;
-            const signalData = responseData.signalData;
-            
-            console.log(`[主持人] 解析成功，参与者ID: ${participantId}, 昵称: ${nickname}`);
-            console.log(`[主持人] 信号类型: ${signalData.type}`);
-
-            // 创建主持人到参与者的连接
-            console.log("[主持人] 创建对等连接对象...");
-            const peer = new SimplePeer({
-                initiator: false,
-                trickle: false,
-                config: { iceServers: this.iceServers },
-                debug: true
-            });
-
-            // 保存连接对象
-            this.peers[participantId] = {
-                peer: peer,
-                nickname: nickname,
-                connected: false
-            };
-            
-            console.log(`[主持人] 已保存连接对象，为参与者 ${nickname}(${participantId})`);
-
-            // 设置消息处理
-            this._setupPeerEvents(peer, participantId, nickname);
-            console.log("[主持人] 已设置事件处理");
-
-            return new Promise((resolve) => {
-                console.log("[主持人] 等待信号生成...");
                 
-                // 创建一个临时服务器来自动交换剩余的信令
-                // 使用临时LocalStorage模拟媒介，这在同一浏览器/域下工作
-                const signalChannel = `webrtc_signal_${participantId}`;
+                // 处理信号
+                peer.signal(signal);
                 
-                // 当需要回应信令时
-                peer.on('signal', data => {
-                    console.log(`[主持人] 生成应答信号，类型: ${data.type}`);
+                // 当信号可用时，生成应答码
+                peer.on('signal', answerSignal => {
+                    console.log(`[DEBUG] 生成应答信号，类型: ${answerSignal.type}`);
                     
-                    // 向参与者发送应答信号
+                    // 创建应答数据
                     const answerData = {
-                        hostId: this.myId,
-                        signalData: data
+                        participantId: this.myId,
+                        hostId: hostId,
+                        signal: answerSignal
                     };
                     
-                    // 在临时存储中保存应答数据
-                    try {
-                        localStorage.setItem(signalChannel, btoa(encodeURIComponent(JSON.stringify(answerData))));
-                        console.log(`[主持人] 应答信号已保存到临时通道: ${signalChannel}`);
-                    } catch (e) {
-                        console.error("[主持人] 无法保存应答信号:", e);
-                    }
-                    
+                    // 编码为应答码
                     const answerCode = btoa(encodeURIComponent(JSON.stringify(answerData)));
-                    console.log("[主持人] 应答码生成完毕，长度:", answerCode.length);
-
+                    console.log(`[DEBUG] 应答码生成成功，长度: ${answerCode.length}`);
+                    
                     resolve({
-                        participantId,
-                        nickname,
-                        answerCode: answerCode
+                        hostId,
+                        answerCode
                     });
                 });
-
-                // 处理参与者发来的信号
-                console.log("[主持人] 开始处理参与者的信号...");
-                peer.signal(signalData);
-                console.log("[主持人] 信号处理完毕，等待连接建立");
-            });
-        } catch (e) {
-            console.error('[主持人] 响应码处理失败:', e);
-            console.error(e.stack);
-            return Promise.reject('响应码格式错误: ' + e.message);
-        }
-    }
-
-    /**
-     * 处理主持人的应答码（参与者用）
-     * @param {string} answerCode - 主持人发回的应答码
-     */
-    processAnswerCode(answerCode) {
-        try {
-            console.log("开始处理主持人应答码");
-            const answerData = JSON.parse(decodeURIComponent(atob(answerCode)));
-            const hostId = answerData.hostId;
-            const signalData = answerData.signalData;
-            
-            console.log("解析应答码成功，主持人ID:", hostId);
-
-            if (this.peers[hostId] && this.peers[hostId].peer) {
-                console.log("找到对应的连接对象，正在处理信号");
-                // 将主持人的应答信令传给对等连接对象
-                this.peers[hostId].peer.signal(signalData);
                 
-                // 检查连接状态
-                setTimeout(() => {
-                    console.log("连接状态检查:", this.peers[hostId].connected);
-                    if (!this.peers[hostId].connected) {
-                        console.log("连接尚未建立，尝试手动触发回调");
-                        if (this.onConnectCallback) {
-                            this.onConnectCallback(hostId, "主持人");
-                        }
-                    }
-                }, 5000);
+                // 处理错误
+                peer.on('error', err => {
+                    console.error(`[DEBUG] 创建连接时出错:`, err);
+                    reject(err);
+                });
                 
-                return true;
-            } else {
-                console.error('找不到对应的主持人连接');
-                return false;
+            } catch (error) {
+                console.error(`[DEBUG] 处理连接响应失败:`, error);
+                reject(error);
             }
-        } catch (e) {
-            console.error('应答码处理失败:', e);
-            console.error(e);
-            return false;
-        }
+        });
+    }
+    
+    /**
+     * 完成连接（主持人用）
+     * @param {string} answerCode - 应答码
+     * @returns {Promise<boolean>} 处理结果
+     */
+    finalizeConnection(answerCode) {
+        console.log(`[DEBUG] 开始完成连接`);
+        
+        return new Promise((resolve, reject) => {
+            try {
+                // 解码应答数据
+                const answerData = JSON.parse(decodeURIComponent(atob(answerCode)));
+                const { participantId, hostId, signal } = answerData;
+                
+                console.log(`[DEBUG] 解析应答成功，参与者ID: ${participantId}, 主持人ID: ${hostId}`);
+                
+                // 验证主持人ID
+                if (hostId !== this.myId) {
+                    console.error(`[DEBUG] 主持人ID不匹配: ${hostId} != ${this.myId}`);
+                    reject(new Error('无效的应答码'));
+                    return;
+                }
+                
+                // 获取已保存的peer对象
+                const peerInfo = this.peers[participantId];
+                if (!peerInfo || !peerInfo.peer) {
+                    console.error(`[DEBUG] 未找到对应的连接对象: ${participantId}`);
+                    reject(new Error('未找到对应的连接请求'));
+                    return;
+                }
+                
+                // 处理信号
+                console.log(`[DEBUG] 处理应答信号...`);
+                peerInfo.peer.signal(signal);
+                
+                // 返回成功
+                resolve(true);
+                
+            } catch (error) {
+                console.error(`[DEBUG] 完成连接失败:`, error);
+                reject(error);
+            }
+        });
     }
 
     /**

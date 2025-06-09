@@ -194,9 +194,42 @@ function initApp() {
         hostManager.connectParticipant();
     });
     
-    document.getElementById('autoDetectBtn').addEventListener('click', () => {
-        hostManager.autoDetectParticipants();
+    document.getElementById('finalizeConnectionBtn').addEventListener('click', () => {
+        hostManager.finalizeConnection();
     });
+    
+    document.getElementById('copyResponseCodeBtn').addEventListener('click', () => {
+        const textarea = document.getElementById('responseCode');
+        textarea.select();
+        document.execCommand('copy');
+        
+        // 显示复制成功的临时提示
+        const btn = document.getElementById('copyResponseCodeBtn');
+        const originalText = btn.textContent;
+        btn.textContent = '已复制!';
+        setTimeout(() => {
+            btn.textContent = originalText;
+        }, 1500);
+    });
+    
+    // 添加连接响应码复制按钮事件
+    const copyConnectionResponseBtn = document.getElementById('copyResponseCodeBtn');
+    if (copyConnectionResponseBtn) {
+        copyConnectionResponseBtn.addEventListener('click', () => {
+            const textarea = document.getElementById('connectionResponseCode');
+            if (textarea) {
+                textarea.select();
+                document.execCommand('copy');
+                
+                // 显示复制成功的临时提示
+                const originalText = copyConnectionResponseBtn.textContent;
+                copyConnectionResponseBtn.textContent = '已复制!';
+                setTimeout(() => {
+                    copyConnectionResponseBtn.textContent = originalText;
+                }, 1500);
+            }
+        });
+    }
     
     document.getElementById('startGameBtn').addEventListener('click', () => {
         hostManager.startGame();

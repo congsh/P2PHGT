@@ -97,16 +97,29 @@
                 </div>
                 <p>直接分享此链接，其他人点击后可自动加入房间</p>
             </div>
-            <div class="auto-connect">
-                <button id="autoDetectBtn" class="btn btn-primary">自动检测并连接参与者</button>
-                <p class="status-text">点击上方按钮自动连接新参与者</p>
-            </div>
-            <div class="connection-input" style="display: none;">
-                <h3>手动输入参与者的响应码</h3>
+            <div class="connection-input">
+                <h3>输入参与者的连接请求码</h3>
                 <div class="code-container">
-                    <textarea id="participantResponseCode" placeholder="粘贴参与者发给你的响应码..."></textarea>
-                    <button id="connectParticipantBtn" class="btn btn-primary">连接</button>
+                    <textarea id="participantResponseCode" placeholder="粘贴参与者发给你的连接请求码..."></textarea>
+                    <button id="connectParticipantBtn" class="btn btn-primary">处理请求</button>
                 </div>
+                <p class="status-text"></p>
+            </div>
+            <div class="connection-response" style="display: none;">
+                <h3>连接响应码（发送给参与者）</h3>
+                <div class="code-container">
+                    <textarea id="connectionResponseCode" readonly placeholder="生成的连接响应码将显示在这里"></textarea>
+                    <button id="copyResponseCodeBtn" class="btn btn-small">复制</button>
+                </div>
+                <p>将此连接响应码发送给参与者，参与者需要将其粘贴到"连接响应码"输入框中</p>
+            </div>
+            <div class="connection-answer" style="display: none;">
+                <h3>输入参与者的应答码</h3>
+                <div class="code-container">
+                    <textarea id="answerCodeInput" placeholder="粘贴参与者发给你的应答码..."></textarea>
+                    <button id="finalizeConnectionBtn" class="btn btn-primary">完成连接</button>
+                </div>
+                <p class="status-text"></p>
             </div>
             <div class="participants-list">
                 <h3>已连接的参与者</h3>
@@ -121,13 +134,13 @@
         <div id="participantWaitingView" class="view">
             <h2>等待与主持人建立连接</h2>
             <div class="connection-info" style="display: none;">
-                <h3>你的响应码（仅在手动连接时需要）</h3>
+                <h3>你的连接请求码（提供给主持人）</h3>
                 <div class="code-container">
-                    <textarea id="responseCode" readonly placeholder="生成的响应码将显示在这里" aria-label="响应码"></textarea>
+                    <textarea id="responseCode" readonly placeholder="生成的连接请求码将显示在这里" aria-label="连接请求码"></textarea>
                     <button id="copyResponseCodeBtn" class="btn btn-small">复制</button>
                 </div>
             </div>
-            <p class="info-text">已自动处理连接请求，正在等待主持人接受连接...</p>
+            <p class="info-text">正在准备连接请求，请稍候...</p>
             <div class="loading-indicator">
                 <div class="spinner"></div>
                 <p>正在等待连接...</p>
