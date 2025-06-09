@@ -349,3 +349,50 @@ function resetAppState() {
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', initApp); 
+
+/**
+ * 全局调试函数，用于检查邀请码是否有效
+ * @param {string} inviteCode - 要检查的邀请码
+ */
+function checkInviteCode(inviteCode) {
+    if (!inviteCode) {
+        console.error('请提供邀请码');
+        return;
+    }
+    
+    console.log(`[调试] 开始检查邀请码: ${inviteCode}`);
+    const result = PeerManager.checkInviteCodeValidity(inviteCode);
+    
+    console.log('%c邀请码检查结果', 'font-weight:bold;font-size:16px;color:#2c3e50;');
+    console.log(`邀请码: %c${inviteCode}`, 'font-weight:bold;color:#3498db;');
+    console.log(`有效性: %c${result.isValid ? '✅ 有效' : '❌ 无效'}`, `font-weight:bold;color:${result.isValid ? '#2ecc71' : '#e74c3c'};`);
+    
+    console.log('%c存储状态检查', 'font-weight:bold;font-size:14px;color:#2c3e50;');
+    console.log(`本地存储 (localStorage): %c${result.diagnostics.localStorage ? '✅ 找到数据' : '❌ 未找到数据'}`, 
+        `font-weight:bold;color:${result.diagnostics.localStorage ? '#2ecc71' : '#e74c3c'};`);
+    console.log(`会话存储 (sessionStorage): %c${result.diagnostics.sessionStorage ? '✅ 找到数据' : '❌ 未找到数据'}`, 
+        `font-weight:bold;color:${result.diagnostics.sessionStorage ? '#2ecc71' : '#e74c3c'};`);
+    console.log(`URL参数: %c${result.diagnostics.urlParams ? '✅ 找到数据' : '❌ 未找到数据'}`, 
+        `font-weight:bold;color:${result.diagnostics.urlParams ? '#2ecc71' : '#e74c3c'};`);
+    
+    console.log('%c浏览器存储权限', 'font-weight:bold;font-size:14px;color:#2c3e50;');
+    console.log(`localStorage: %c${result.diagnostics.details.storageAvailable.localStorage ? '✅ 可用' : '❌ 不可用'}`, 
+        `font-weight:bold;color:${result.diagnostics.details.storageAvailable.localStorage ? '#2ecc71' : '#e74c3c'};`);
+    console.log(`sessionStorage: %c${result.diagnostics.details.storageAvailable.sessionStorage ? '✅ 可用' : '❌ 不可用'}`, 
+        `font-weight:bold;color:${result.diagnostics.details.storageAvailable.sessionStorage ? '#2ecc71' : '#e74c3c'};`);
+    
+    console.log('%c详细信息', 'font-weight:bold;font-size:14px;color:#2c3e50;');
+    console.log(result.diagnostics.details);
+    
+    console.log('%c可能的解决方法', 'font-weight:bold;font-size:14px;color:#27ae60;');
+    console.log('1. 确认邀请码输入正确（区分大小写）');
+    console.log('2. 请主持人重新生成并分享邀请码');
+    console.log('3. 尝试使用主持人分享的链接直接加入');
+    console.log('4. 检查浏览器是否阻止了存储访问（隐私模式等）');
+    console.log('5. 确保主持人和参与者使用相同的网络环境');
+    
+    return result;
+}
+
+// 将调试函数暴露到全局作用域
+window.checkInviteCode = checkInviteCode; 

@@ -49,8 +49,7 @@ const participantManager = {
                     })
                     .catch(error => {
                         console.error("[DEBUG] Promise解析失败:", error);
-                        alert('解析邀请码失败: ' + error.message);
-                        viewManager.switchTo('participantJoinView'); // 返回加入界面
+                        this._showDiagnosticInfo(inviteCode, error);
                     });
             } else {
                 // 直接处理本地数据
@@ -59,9 +58,101 @@ const participantManager = {
             }
         } catch (error) {
             console.error("[参与者] 加入游戏失败:", error);
-            alert('解析邀请码失败: ' + error.message);
-            viewManager.switchTo('participantJoinView'); // 返回加入界面
+            this._showDiagnosticInfo(inviteCode, error);
         }
+    },
+    
+    /**
+     * 显示诊断信息
+     * @param {string} inviteCode - 邀请码
+     * @param {Error} error - 错误对象
+     * @private
+     */
+    _showDiagnosticInfo: function(inviteCode, error) {
+        console.log("[DEBUG] 显示邀请码诊断信息");
+        
+        // 获取邀请码有效性检查结果
+        const validityCheck = PeerManager.checkInviteCodeValidity(inviteCode);
+        console.log("[DEBUG] 邀请码有效性检查结果:", validityCheck);
+        
+        // 创建诊断信息HTML
+        let diagnosticHtml = `
+            <div class="diagnostic-info">
+                <h3>邀请码解析失败</h3>
+                <p class="error-message">${error.message}</p>
+                
+                <div class="diagnostic-details">
+                    <h4>诊断信息</h4>
+                    <p>邀请码: <strong>${inviteCode}</strong></p>
+                    <p>有效性: <strong>${validityCheck.isValid ? '有效' : '无效'}</strong></p>
+                    
+                    <h4>存储状态检查</h4>
+                    <ul>
+                        <li>本地存储 (localStorage): ${validityCheck.diagnostics.localStorage ? '✅ 找到数据' : '❌ 未找到数据'}</li>
+                        <li>会话存储 (sessionStorage): ${validityCheck.diagnostics.sessionStorage ? '✅ 找到数据' : '❌ 未找到数据'}</li>
+                        <li>URL参数: ${validityCheck.diagnostics.urlParams ? '✅ 找到数据' : '❌ 未找到数据'}</li>
+                    </ul>
+                    
+                    <h4>浏览器存储权限</h4>
+                    <ul>
+                        <li>localStorage: ${validityCheck.diagnostics.details.storageAvailable.localStorage ? '✅ 可用' : '❌ 不可用'}</li>
+                        <li>sessionStorage: ${validityCheck.diagnostics.details.storageAvailable.sessionStorage ? '✅ 可用' : '❌ 不可用'}</li>
+                    </ul>
+                    
+                    <div class="resolution-tips">
+                        <h4>可能的解决方法:</h4>
+                        <ul>
+                            <li>确认邀请码输入正确（区分大小写）</li>
+                            <li>请主持人重新生成并分享邀请码</li>
+                            <li>尝试使用主持人分享的链接直接加入</li>
+                            <li>检查浏览器是否阻止了存储访问（隐私模式等）</li>
+                            <li>确保主持人和参与者使用相同的网络环境</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <button id="backToJoinBtn" class="btn btn-primary">返回</button>
+            </div>
+        `;
+        
+        // 显示诊断信息
+        viewManager.switchTo('participantJoinView');
+        
+        // 添加诊断信息到页面
+        const joinView = document.getElementById('participantJoinView');
+        const originalContent = joinView.innerHTML;
+        joinView.innerHTML = diagnosticHtml;
+        
+        // 绑定返回按钮事件
+        document.getElementById('backToJoinBtn').addEventListener('click', () => {
+            joinView.innerHTML = originalContent;
+            
+            // 重新绑定事件
+            document.getElementById('joinGameBtn').addEventListener('click', () => {
+                const nickname = document.getElementById('participantName').value.trim();
+                const inviteCode = document.getElementById('inviteCode').value.trim();
+                
+                if (!nickname) {
+                    alert('请输入你的昵称');
+                    return;
+                }
+                
+                if (!inviteCode) {
+                    alert('请输入主持人分享的邀请码');
+                    return;
+                }
+                
+                this.joinGame(nickname, inviteCode);
+            });
+            
+            document.getElementById('backFromJoinBtn').addEventListener('click', () => {
+                viewManager.switchTo('welcomeView');
+            });
+            
+            // 保留之前输入的值
+            document.getElementById('participantName').value = appState.nickname;
+            document.getElementById('inviteCode').value = inviteCode;
+        });
     },
     
     /**

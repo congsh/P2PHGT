@@ -640,4 +640,81 @@ textarea {
 
 #continueGamePopup .radio-group {
     margin-bottom: 10px;
+}
+
+/* 诊断信息样式 */
+.diagnostic-info {
+    padding: 15px;
+    background-color: #fff;
+    border-radius: 8px;
+}
+
+.diagnostic-info h3 {
+    color: #e74c3c;
+    margin-bottom: 15px;
+    font-size: 1.5rem;
+}
+
+.diagnostic-info .error-message {
+    color: #e74c3c;
+    font-weight: bold;
+    padding: 10px;
+    background-color: #fdf2f2;
+    border-left: 4px solid #e74c3c;
+    margin-bottom: 20px;
+}
+
+.diagnostic-details {
+    background-color: #f9f9f9;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+.diagnostic-details h4 {
+    color: #2c3e50;
+    margin-top: 15px;
+    margin-bottom: 10px;
+    font-size: 1.1rem;
+}
+
+.diagnostic-details ul {
+    list-style: none;
+    padding-left: 15px;
+    margin-bottom: 15px;
+}
+
+.diagnostic-details li {
+    margin-bottom: 5px;
+}
+
+.resolution-tips {
+    background-color: #eafaf1;
+    padding: 15px;
+    border-radius: 5px;
+    border-left: 4px solid #2ecc71;
+}
+
+.resolution-tips h4 {
+    color: #27ae60;
+}
+
+.resolution-tips ul {
+    padding-left: 20px;
+    list-style: disc;
+}
+
+.resolution-tips li {
+    margin-bottom: 8px;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .diagnostic-info {
+        padding: 10px;
+    }
+    
+    .diagnostic-details {
+        padding: 10px;
+    }
 } 

@@ -691,6 +691,147 @@ class PeerManager {
         
         return null;
     }
+
+    /**
+     * 检查邀请码是否有效
+     * @param {string} inviteCode - 要检查的邀请码
+     * @returns {Object} 检查结果，包含是否有效和诊断信息
+     */
+    static checkInviteCodeValidity(inviteCode) {
+        console.log(`[DEBUG] 开始检查邀请码有效性: ${inviteCode}`);
+        const result = {
+            isValid: false,
+            diagnostics: {
+                localStorage: false,
+                sessionStorage: false,
+                urlParams: false,
+                details: {}
+            }
+        };
+        
+        try {
+            // 格式化邀请码
+            const formattedCode = inviteCode.trim().toUpperCase();
+            const shortCodeKey = `room_${formattedCode}`;
+            
+            // 检查本地存储
+            const storedData = localStorage.getItem(shortCodeKey);
+            if (storedData) {
+                result.isValid = true;
+                result.diagnostics.localStorage = true;
+                result.diagnostics.details.localStorage = {
+                    found: true,
+                    size: storedData.length
+                };
+                
+                try {
+                    const parsedData = JSON.parse(decodeURIComponent(storedData));
+                    result.diagnostics.details.localStorage.parsed = true;
+                    result.diagnostics.details.localStorage.hostId = parsedData.hostId;
+                    result.diagnostics.details.localStorage.timestamp = new Date(parsedData.timestamp).toLocaleString();
+                } catch (e) {
+                    result.diagnostics.details.localStorage.parsed = false;
+                    result.diagnostics.details.localStorage.error = e.message;
+                }
+            } else {
+                result.diagnostics.details.localStorage = {
+                    found: false
+                };
+            }
+            
+            // 检查会话存储
+            const sessionData = sessionStorage.getItem(`invite_data_${formattedCode}`);
+            if (sessionData) {
+                result.isValid = true;
+                result.diagnostics.sessionStorage = true;
+                result.diagnostics.details.sessionStorage = {
+                    found: true,
+                    size: sessionData.length
+                };
+            } else {
+                result.diagnostics.details.sessionStorage = {
+                    found: false
+                };
+            }
+            
+            // 检查URL参数
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomCode = urlParams.get('room');
+            const encodedData = urlParams.get('data');
+            
+            if (roomCode && roomCode.toUpperCase() === formattedCode && encodedData) {
+                result.isValid = true;
+                result.diagnostics.urlParams = true;
+                result.diagnostics.details.urlParams = {
+                    found: true,
+                    roomCode: roomCode,
+                    dataSize: encodedData.length
+                };
+            } else {
+                result.diagnostics.details.urlParams = {
+                    found: false,
+                    currentUrl: window.location.href
+                };
+            }
+            
+            // 检查是否有已加载的房间码
+            const loadedRoomCode = sessionStorage.getItem('loaded_room_code');
+            if (loadedRoomCode && loadedRoomCode === formattedCode) {
+                result.diagnostics.details.loadedRoomCode = {
+                    found: true,
+                    code: loadedRoomCode
+                };
+            } else {
+                result.diagnostics.details.loadedRoomCode = {
+                    found: false
+                };
+            }
+            
+            // 检查是否有待处理的邀请码
+            const pendingCode = sessionStorage.getItem('pending_invite_code');
+            if (pendingCode && pendingCode === formattedCode) {
+                result.diagnostics.details.pendingCode = {
+                    found: true,
+                    code: pendingCode
+                };
+            } else {
+                result.diagnostics.details.pendingCode = {
+                    found: false
+                };
+            }
+            
+            // 检查浏览器存储权限
+            result.diagnostics.details.storageAvailable = {
+                localStorage: this._isStorageAvailable('localStorage'),
+                sessionStorage: this._isStorageAvailable('sessionStorage')
+            };
+            
+            console.log(`[DEBUG] 邀请码检查结果:`, result);
+            return result;
+        } catch (e) {
+            console.error(`[DEBUG] 检查邀请码时出错:`, e);
+            result.diagnostics.details.error = e.message;
+            return result;
+        }
+    }
+    
+    /**
+     * 检查存储是否可用
+     * @param {string} type - 存储类型 ('localStorage' 或 'sessionStorage')
+     * @returns {boolean} 存储是否可用
+     * @private
+     */
+    static _isStorageAvailable(type) {
+        try {
+            const storage = window[type];
+            const x = '__storage_test__';
+            storage.setItem(x, x);
+            storage.removeItem(x);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
 }
 
 // 全局导出
